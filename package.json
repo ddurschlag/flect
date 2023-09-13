@@ -1,0 +1,20 @@
+{
+	"name": "@flect/workspace",
+	"description": "Reifiable types for TypeScript",
+	"keywords": [
+		"reification",
+		"reflection",
+		"types"
+	],
+	"author": {
+		"name": "David Durschlag",
+		"url": "https://github.com/ddurschlag"	
+	},
+	"license": "MIT",
+	"workspaces": [
+		"core",
+		"guard",
+		"traverse",
+		"ioc"
+	]
+}
