@@ -1,7 +1,7 @@
 export class Type<Reflected = unknown> {
 	protected readonly _refl!: Reflected;
     };
-    
+
     export type Reify<T extends Type> = T extends Type<infer Reflected> ? Reflected : never;
     type ReflectObject<Reflected extends Record<string|number, unknown>> = {[K in keyof Reflected]: Type<Reflected[K]>};
     type ReflectTuple<Reflected extends readonly [...unknown[]]> = {[K in keyof Reflected]: Type<Reflected[K]>};
@@ -31,6 +31,15 @@ export class Type<Reflected = unknown> {
 	    }
 	    public itemType: Type<ReflectedItem>
     }
+
+    const brandProp = Symbol('brand-prop');
+    export class BrandType<T extends symbol> extends Type<{readonly [brandProp]: T}> {
+	constructor(symbol: T) {
+		super();
+		this._symbol = symbol;
+	}
+	private _symbol: T;
+    }
     
     export const stringType = new Type<string>();
     export const numberType = new Type<number>();
@@ -40,6 +49,10 @@ export class Type<Reflected = unknown> {
     export const voidType = new Type<void>();
     export const nullType = new Type<null>();
     export const neverType = new Type<never>();
+
+    export function brand<T extends symbol>(t: T)  {
+	return new BrandType(t);
+    }
     
     export function literal<Reflected extends number|string|boolean>(type: Reflected) {
 	return new Type<Reflected>();

@@ -1,4 +1,4 @@
-import {ArrayType, RecordType, Type, bigintType, boolType, neverType, nullType, numberType, stringType, symbolType, voidType} from '@flect/core';
+import {ArrayType, BrandType, RecordType, Type, bigintType, boolType, neverType, nullType, numberType, stringType, symbolType, voidType} from '@flect/core';
 
 // Guards
 export type Guard<T = unknown> = (u: unknown) => u is T;
@@ -53,6 +53,17 @@ defaultGuards.add(symbolType, (u): u is symbol => typeof u === 'symbol');
 defaultGuards.add(voidType, (u): u is void => typeof u === 'undefined');
 defaultGuards.add(nullType, (u): u is null => u === null);
 defaultGuards.add(neverType, (u): u is never => false);
+
+// Guards for brands are always false -- there's no way to inspect data
+// and see that it's the branded version. That's the point.
+// Use a custom repository for when this should return true
+export const brandRepository: GuardRepository = {
+	get: <T>(t: Type<T>) => {
+		if (t instanceof BrandType) {
+			return (u: unknown): u is T => false;
+		}
+	}
+}
 
 function objectHas(o: object, k: string|number): o is {[key in typeof k]: unknown} {
 	return Object.hasOwn(o, k);
