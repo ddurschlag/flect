@@ -103,7 +103,6 @@ class InstanceStorage {
 			return null;
 		}
 		const result = keyMap.get(key);
-		console.log({bound, key, result});
 		if (result === undefined) {
 			return null;
 		}
@@ -131,7 +130,8 @@ class Binder<TInterface extends unknown, TDepTypes extends readonly [...unknown[
 	}
 
 	public with<TMoreDeps extends readonly [...unknown[]]>(...moreDeps: RawDependencies<TMoreDeps>) {
-		return new Binder(
+		// Would be nice to infer this :(
+		return new Binder<TInterface, readonly [...TDepTypes, ...TMoreDeps]>(
 			this._storage,
 			this._bound,
 			[...this._dependencies, ...buildDependencies(moreDeps)] as const,
