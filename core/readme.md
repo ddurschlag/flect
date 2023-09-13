@@ -8,7 +8,7 @@
 
 ## Introduction
 
-Flect/core is a library for describing TypeScript types uses JavaScript objects.
+Flect/core is a library for describing TypeScript types using JavaScript objects.
 
 ## Usage
 
