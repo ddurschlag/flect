@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="../flect.png" width="200px" align="center" alt="flect logo" />
+  <img src="flect.png" width="200px" align="center" alt="flect logo" />
   <h1 align="center">Flect/traverse</h1>
   <p align="center">
     Data traversal for Flect types

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="../flect.png" width="200px" align="center" alt="flect logo" />
+  <img src="flect.png" width="200px" align="center" alt="flect logo" />
   <h1 align="center">Flect/guard</h1>
   <p align="center">
     Typeguards for Flect types
