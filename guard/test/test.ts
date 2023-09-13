@@ -1,5 +1,5 @@
-import { Reify, array, bigintType, boolType, neverType, nullType, numberType, record, stringType, symbolType, voidType } from '@flect/core';
-import { GenericArrayValidator, GenericRecordValidator, GuardChain, defaultGuards } from '..'
+import { Reify, array, bigintType, boolType, brand, neverType, nullType, numberType, record, stringType, symbolType, voidType } from '@flect/core';
+import { GenericArrayValidator, GenericRecordValidator, GuardChain, defaultGuards, brandRepository } from '..'
 
 const Animal = record({
 	legCount: numberType,
@@ -27,6 +27,10 @@ const Change = record({
 type Change = Reify<typeof Change>;
 
 describe('@flect/Guard', () => {
+	test('Brand', () => {
+		const v = brandRepository.get(brand(Symbol()))!;
+		expect(v(null)).toBe(false);
+	});
 	test('Record', () => {
 		const v = new GuardChain();
 		const recV = new GenericRecordValidator(v);
