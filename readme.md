@@ -8,7 +8,7 @@
 
 ## Introduction
 
-Flect is a library for describing TypeScript types uses JavaScript objects. These types can be reified into TypeScript types, as well as being used for tasks like validation and dependency injection.
+Flect is a library for describing TypeScript types using JavaScript objects. These types can be reified into TypeScript types, as well as being used for tasks like validation and dependency injection.
 
 ## Inspiration
 
