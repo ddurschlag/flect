@@ -1,6 +1,6 @@
 {
 	"name": "@flect/ioc",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "Inversion of control container for flect",
 	"main": "./dist/index.js",
 	"module": "/dist/index.js",
