@@ -10,6 +10,10 @@
 		"test": "jest"
 	},
 	"author": "David Durschlag",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/ddurschlag/flect/"
+	},
 	"type": "module",
 	"devDependencies": {
 		"@babel/core": "^7.22.10",

@@ -6,6 +6,10 @@
 		"reflection",
 		"types"
 	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/ddurschlag/flect"
+	},
 	"author": {
 		"name": "David Durschlag",
 		"url": "https://github.com/ddurschlag"	
