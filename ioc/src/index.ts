@@ -168,7 +168,7 @@ export class Container {
 	// Bind to a type, with optional key. Use keys
 	// if you have multiple implementations of a type
 	public bind<TInterface extends unknown>(bound: Type<TInterface>, key: KeyType = null) {
-		return new Binder(this._storage, bound, [], key);
+		return new Binder(this._storage, bound, [] as const, key);
 	}
 
 	// Resolve a type with optional key. Will resolve
