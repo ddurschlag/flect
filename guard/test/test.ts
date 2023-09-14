@@ -1,5 +1,5 @@
-import { Reify, array, bigintType, boolType, brand, neverType, nullType, numberType, record, stringType, symbolType, voidType } from '@flect/core';
-import { GenericArrayValidator, GenericRecordValidator, GuardChain, defaultGuards, brandRepository } from '..'
+import { Reify, array, bigintType, boolType, brand, intersection, neverType, nullType, numberType, record, stringType, symbolType, union, voidType } from '@flect/core';
+import { GenericArrayValidator, GenericRecordValidator, GuardChain, defaultGuards, brandRepository, AlgebraRepository } from '..'
 
 const Animal = record({
 	legCount: numberType,
@@ -17,6 +17,14 @@ const Person = record({
 type Person = Reify<typeof Person>;
 const steve: Person = { pet: dog };
 
+const PersonOrPet = union(Person, Animal);
+type PersonOrPet = Reify<typeof PersonOrPet>;
+
+const PersonAndPet = intersection(Person, Animal);
+type PersonAndPet = Reify<typeof PersonAndPet>;
+
+const steveDog = Object.assign({}, steve, dog);
+
 const Row = array(boolType);
 const Grid = array(Row);
 const Change = record({
@@ -30,6 +38,30 @@ describe('@flect/Guard', () => {
 	test('Brand', () => {
 		const v = brandRepository.get(brand(Symbol()))!;
 		expect(v(null)).toBe(false);
+	});
+	test('Union', () => {
+		const v = new GuardChain();
+		const recV = new GenericRecordValidator(v);
+		const algV = new AlgebraRepository(v);
+		v.add(defaultGuards);
+		v.add(recV);
+		v.add(algV);
+
+		expect(v.get(PersonOrPet)!(steve)).toBe(true);
+		expect(v.get(PersonOrPet)!(dog)).toBe(true);
+		expect(v.get(PersonOrPet)!('steve')).toBe(false);
+	});
+	test('Intersection', () => {
+		const v = new GuardChain();
+		const recV = new GenericRecordValidator(v);
+		const algV = new AlgebraRepository(v);
+		v.add(defaultGuards);
+		v.add(recV);
+		v.add(algV);
+
+		expect(v.get(PersonAndPet)!(steve)).toBe(false);
+		expect(v.get(PersonAndPet)!(dog)).toBe(false);
+		expect(v.get(PersonAndPet)!(steveDog)).toBe(true);
 	});
 	test('Record', () => {
 		const v = new GuardChain();
@@ -93,6 +125,12 @@ describe('@flect/Guard', () => {
 		const arrV = new GenericArrayValidator(v);
 		v.add(arrV);
 		expect(v.get(array(numberType))).toBeUndefined();
+	});
+	test('Unsubvalidatable algebra', () => {
+		const v = new GuardChain();
+		v.add(new AlgebraRepository(v));
+		expect(v.get(union(stringType, numberType))).toBeUndefined();
+		expect(v.get(intersection(stringType, numberType))).toBeUndefined();
 	});
 	test('Primitives', () => {
 		expect(defaultGuards.get(stringType)!('string')).toBe(true);

@@ -5,11 +5,11 @@ export class Type<Reflected = unknown> {
     export type Reify<T extends Type> = T extends Type<infer Reflected> ? Reflected : never;
     type ReflectObject<Reflected extends Record<string|number, unknown>> = {[K in keyof Reflected]: Type<Reflected[K]>};
     type ReflectTuple<Reflected extends readonly [...unknown[]]> = {[K in keyof Reflected]: Type<Reflected[K]>};
-    type Union<Reflected extends readonly [...unknown[]]> =
+    export type Union<Reflected extends readonly [...unknown[]]> =
 	 Reflected extends readonly [infer Head, ...infer Tail]
 	    ? Head | Union<Tail>
 	    : never;
-    type Intersection<Reflected extends readonly [...unknown[]]> =
+    export type Intersection<Reflected extends readonly [...unknown[]]> =
 	    Reflected extends readonly [] ? unknown :
 	 Reflected extends readonly [infer Head, ...infer Tail]
 	    ? Head & Intersection<Tail>
@@ -39,6 +39,24 @@ export class Type<Reflected = unknown> {
 		this._symbol = symbol;
 	}
 	private _symbol: T;
+    }
+
+    export class UnionType<Subsets extends readonly [...unknown[]]> extends Type<Union<Subsets>> {
+	constructor(subsets: ReflectTuple<Subsets>) {
+		super();
+		this._subsets = subsets;
+	}
+	get subsets() { return this._subsets; }
+	private _subsets: ReflectTuple<Subsets>;
+    }
+
+    export class IntersectionType<Subsets extends readonly [...unknown[]]> extends Type<Intersection<Subsets>> {
+	constructor(subsets: ReflectTuple<Subsets>) {
+		super();
+		this._subsets = subsets;
+	}
+	get subsets() { return this._subsets; }
+	private _subsets: ReflectTuple<Subsets>;
     }
     
     export const stringType = new Type<string>();
@@ -84,11 +102,11 @@ export class Type<Reflected = unknown> {
     }
     
     export function union<Subsets extends readonly [...unknown[]]>(...subsets: ReflectTuple<Subsets>) {
-	return new Type<Union<Subsets>>();
+	return new UnionType(subsets);
     }
     
     export function intersection<Subsets extends readonly [...unknown[]]>(...subsets: ReflectTuple<Subsets>) {
-	return new Type<Intersection<Subsets>>();
+	return new IntersectionType(subsets);
     }
     
     export function functionType<Params extends readonly [...unknown[]], Returns extends unknown>(returnType: Type<Returns>, ...parameterTypes: ReflectTuple<Params> ) {
