@@ -1,11 +1,19 @@
-import { record, numberType, stringType, Reify, array, union, literal } from '@flect/core';
-import {traverseIndex, traverseRecord} from '..';
+import { record, numberType, stringType, Reify, array, union, literal, Union, intersection } from '@flect/core';
+import {traverseIndex, traverseRecord, traverse} from '..';
 
 const Animal = record({
 	legCount: numberType,
 	sound: stringType
 });
 type Animal = Reify<typeof Animal>;
+
+const Person = record({
+	name: stringType
+});
+type Person = Reify<typeof Person>;
+
+const PersonAndPet = intersection(Person, Animal);
+type PersonAndPet = Reify<typeof PersonAndPet>;
 
 const BinarySequence = array(union(literal(true), literal(false)));
 type BinarySequence = Reify<typeof BinarySequence>;
@@ -22,5 +30,31 @@ describe('@flect/traverse', () => {
 		const myDog = { 'legCount': 4, sound: 'woof' };
 		const dogSound = getSound(myDog);
 		expect(dogSound).toBe('woof');
+	});
+	test('Union', () => {
+		const NumOrString = union(numberType, stringType);
+		const idOrLength = traverse(NumOrString, (nors) => {
+			switch (typeof nors) {
+				case 'number':
+					return nors;
+				case 'string':
+					return nors.length;
+				default:
+					return 0;
+			}
+		});
+		expect(idOrLength(4)).toBe(4);
+		expect(idOrLength('four')).toBe(4);
+	});
+	test('Intersection', () => {
+		const nameSound = traverse(PersonAndPet, (pp) => {
+			return pp.sound + ' ' + pp.name;
+		});
+		const steveDog: PersonAndPet = {
+			sound: 'woof',
+			legCount: 4,
+			name: 'steve'
+		};
+		expect(nameSound(steveDog)).toBe('woof steve');
 	});
 });

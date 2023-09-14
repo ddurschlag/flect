@@ -1,4 +1,4 @@
-import {ArrayType, BrandType, RecordType, Type, bigintType, boolType, neverType, nullType, numberType, stringType, symbolType, voidType} from '@flect/core';
+import {ArrayType, BrandType, IntersectionType, RecordType, Type, UnionType, bigintType, boolType, neverType, nullType, numberType, stringType, symbolType, voidType} from '@flect/core';
 
 // Guards
 export type Guard<T = unknown> = (u: unknown) => u is T;
@@ -65,6 +65,52 @@ export const brandRepository: GuardRepository = {
 	}
 }
 
+export class AlgebraRepository implements GuardRepository {
+	constructor(subRepo: GuardRepository) {
+		this._subRepo = subRepo;
+	}
+
+	public get<T>(t: Type<T>) {
+		if (t instanceof UnionType) {
+			const subGuards: Guard<unknown>[] = [];
+			for ( let i = 0 ; i < t.subsets.length ; i++ ) {
+				const g = this._subRepo.get(t.subsets[i]);
+				if (g === undefined) {
+					return; // Can't validate if we can't find sub-validators
+				}
+				subGuards.push(g);
+			}
+			return (u: unknown): u is T => {
+				for ( const g of subGuards ) {
+					if (g(u)) {
+						return true;
+					}
+				}
+				return false;
+			};
+		}
+		if (t instanceof IntersectionType) {
+			const subGuards: Guard<unknown>[] = [];
+			for ( let i = 0 ; i < t.subsets.length ; i++ ) {
+				const g = this._subRepo.get(t.subsets[i]);
+				if (g === undefined) {
+					return; // Can't validate if we can't find sub-validators
+				}
+				subGuards.push(g);
+			}
+			return (u: unknown): u is T => {
+				for ( const g of subGuards ) {
+					if (!g(u)) {
+						return false;
+					}
+				}
+				return true;
+			};
+		}
+	}
+	private _subRepo: GuardRepository;
+}
+
 function objectHas(o: object, k: string|number): o is {[key in typeof k]: unknown} {
 	return Object.hasOwn(o, k);
 }
@@ -75,19 +121,19 @@ export class GenericRecordValidator implements GuardRepository {
 	}
 	get<T>(t: Type<T>) {
 		if (t instanceof RecordType) {
-			const props: {key: string, val: Guard<T>}[] = [];
+			const subGuards: {key: string, val: Guard<unknown>}[] = [];
 			for ( const p of t.properties ) {
-				const subVal = this._subRepo.get(p[1]);
-				if (subVal === undefined) {
+				const val = this._subRepo.get(p[1]);
+				if (val === undefined) {
 					return; // Can't validate if we can't find sub-validators
 				}
-				props.push({key: p[0], val: subVal});
+				subGuards.push({key: p[0], val});
 			}
 			return (u: unknown): u is T => {
 				if (typeof u !== 'object' || u === null) {
 					return false;
 				}
-				for (const prop of props) {
+				for (const prop of subGuards) {
 					if (!objectHas(u, prop.key) || !prop.val(u[prop.key])) {
 						return false;
 					}

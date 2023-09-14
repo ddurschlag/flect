@@ -20,7 +20,8 @@ import {
 	conditional,
 	neverType,
 	intersection,
-	brand
+	brand,
+	UnionType
 } from '../';
 
 const Animal = record({
@@ -102,6 +103,8 @@ describe('@flect/core', () => {
 		test('Union type', () => {
 			const binSeq: BinarySequence = [true, false, true];
 			expect(binSeq).toBeTruthy();
+			const u = BinarySequence.itemType as UnionType<[true, false]>;
+			expect(u.subsets.length).toBe(2);
 			// @ts-expect-error
 			const numSeq: BinarySequence = [1, 2, 3];
 		});
@@ -111,9 +114,10 @@ describe('@flect/core', () => {
 			const Four = intersection(threeOrFour, fourOrFive);
 			type Four = Reify<typeof Four>;
 			const myFour: Four = 4;
+			expect(Four.subsets.length).toBe(2);
 			// @ts-expect-error
 			const notFour: Four = 5;
-		})
+		});
 		test('Tuple type', () => {
 			const StringNumString = tuple(stringType, numberType, stringType);
 			type StringNumString = Reify<typeof StringNumString>;
