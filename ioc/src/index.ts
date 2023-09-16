@@ -84,36 +84,6 @@ class ProviderStorage {
 	>;	
 }
 
-class InstanceStorage {
-	constructor() {
-		this._map = new Map();
-	}
-
-	public store(bound: Injectable, key: KeyType, instance: unknown) {
-		let keyMap = this._map.get(bound);
-		if (keyMap === undefined) {
-			keyMap = new Map();
-			this._map.set(bound, keyMap);
-		}
-		keyMap.set(key, instance);
-	}
-	public retrieve<T>(bound: Injectable, key: KeyType) {
-		const keyMap = this._map.get(bound);
-		if (keyMap === undefined) {
-			return null;
-		}
-		const result = keyMap.get(key);
-		if (result === undefined) {
-			return null;
-		}
-		return result as T;
-	}
-	private _map: Map<
-		Injectable, // What we're going to get
-		Map<KeyType, unknown>
-	>;
-}
-
 // Fluent builder for implementation provision
 // Should these be reduced to underlying types, with wrapping done in params?
 class Binder<TInterface extends unknown, TDepTypes extends readonly [...unknown[]]> {
@@ -162,7 +132,6 @@ class Binder<TInterface extends unknown, TDepTypes extends readonly [...unknown[
 export class Container {
 	constructor() {
 		this._storage = new ProviderStorage();
-		this._instanceStorage = new InstanceStorage();
 	}
 
 	// Bind to a type, with optional key. Use keys
@@ -173,16 +142,10 @@ export class Container {
 
 	// Resolve a type with optional key. Will resolve
 	// any dependencies of the implementation as well.
-	// Use keys if you have multiple implementatiosn of a type
+	// Use keys if you have multiple implementations of a type
 	public resolve<TInterface extends unknown>(boundInterface: Type<TInterface>, key: KeyType = null): TInterface {
-		let result = this._instanceStorage.retrieve<TInterface>(boundInterface, key);
-		if (result === null) {
-			const { dependencies, impl } = this._storage.retrieve(boundInterface, key);
-			let newResult = Reflect.apply<null, Injectable[], TInterface>(impl, null, dependencies.map((d) => this.resolveDependency(d)) as any); // TODO -- tuple map
-			this._instanceStorage.store(boundInterface, key, newResult);
-			return newResult;
-		}
-		return result;
+		const { dependencies, impl } = this._storage.retrieve(boundInterface, key);
+		return Reflect.apply<null, Injectable[], TInterface>(impl, null, dependencies.map((d) => this.resolveDependency(d)) as any); // TODO -- tuple map
 	}
 
 	private resolveDependency<TInterface extends unknown>(dep: Dependency<TInterface>) {
@@ -201,7 +164,6 @@ export class Container {
 	}
 
 	private _storage: ProviderStorage;
-	private _instanceStorage: InstanceStorage;
 }
 
 // Function to get a full dependency instead

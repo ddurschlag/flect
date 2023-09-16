@@ -155,4 +155,9 @@ describe('@flect/ioc', () => {
 		expect(c.resolve(Person)).toBe(c.resolve(Person));
 		expect(c.resolve(Person)).toBe(steve);
 	});
+	test('Different instance', () => {
+		const c = new Container();
+		c.bind(Animal).toType(Cat);
+		expect(c.resolve(Animal)).not.toBe(c.resolve(Animal));
+	});
 });
