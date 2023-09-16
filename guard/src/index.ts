@@ -44,6 +44,28 @@ export class GuardChain implements GuardRepository {
     private _chain: GuardRepository[];
 };
 
+export class GuardCache implements GuardRepository {
+	constructor(inner: GuardRepository) {
+		this._inner = inner;
+		this._cache = new Map();
+	}
+
+	get<T>(t: Type<T>) {
+		let result = this._cache.get(t);
+		if (result !== undefined) {
+			return result as Guard<T>;
+		}
+		result = this._inner.get(t);
+		if (result !== undefined) {
+			this._cache.set(t, result);
+		}
+		return result as Guard<T>;
+	}
+
+	private _inner: GuardRepository;
+	private _cache: Map<Type, Guard>;
+}
+
 export const defaultGuards = new GuardMap();
 defaultGuards.add(stringType, (u): u is string => typeof u === 'string');
 defaultGuards.add(numberType, (u): u is number => typeof u === 'number');
