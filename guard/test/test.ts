@@ -1,5 +1,5 @@
 import { Reify, array, bigintType, boolType, brand, intersection, neverType, nullType, numberType, record, stringType, symbolType, union, voidType } from '@flect/core';
-import { GenericArrayValidator, GenericRecordValidator, GuardChain, defaultGuards, brandRepository, AlgebraRepository } from '..'
+import { GenericArrayValidator, GenericRecordValidator, GuardChain, defaultGuards, brandRepository, AlgebraRepository, GuardCache } from '..'
 
 const Animal = record({
 	legCount: numberType,
@@ -155,5 +155,17 @@ describe('@flect/Guard', () => {
 		expect(defaultGuards.get(nullType)!({})).toBe(false);
 
 		expect(defaultGuards.get(neverType)!('string')).toBe(false);
+	});
+	test('Cache', () => {
+		let callCount = 0;
+		const v = new GuardChain();
+		v.add({get: <T>() => ++callCount as any});
+		expect(v.get(stringType)).toBe(1);
+		expect(v.get(stringType)).toBe(2);
+		expect(v.get(stringType)).toBe(3);
+		const cache = new GuardCache(v);
+		expect(cache.get(stringType)).toBe(4);
+		expect(cache.get(stringType)).toBe(4);
+		expect(cache.get(stringType)).toBe(4);
 	});
 });
