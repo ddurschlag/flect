@@ -2,12 +2,25 @@
 	"name": "@flect/traverse",
 	"version": "1.0.3",
 	"description": "Data traversal for flect types",
+	"keywords": [
+		"typescript",
+		"reification",
+		"reflection",
+		"node",
+		"traversal",
+		"traverse",
+		"flect"
+	],
+	"dependencies": {
+		"@flect/core": "^1.0"
+	},
 	"main": "./dist/index.js",
 	"module": "/dist/index.js",
 	"exports": "./dist/index.js",
 	"scripts": {
 		"build": "tsc",
-		"test": "jest"
+		"test": "jest",
+		"fix": "eslint . --fix && prettier . --write"
 	},
 	"author": "David Durschlag",
 	"repository": {
@@ -24,22 +37,13 @@
 		"babel-cli": "^6.26.0",
 		"babel-jest": "^29.6.2",
 		"esbuild": "^0.15.13",
-		"eslint": "^8.26.0",
+		"eslint": "^8.49.0",
 		"eslint-config-airbnb-typescript": "^17.0.0",
+		"@typescript-eslint/eslint-plugin": "6.7.0",
+		"@typescript-eslint/parser": "6.7.0",
 		"jest": "29.6.2",
-		"typescript": "5.1.6"
-	},
-	"keywords": [
-		"typescript",
-		"reification",
-		"reflection",
-		"node",
-		"traversal",
-		"traverse",
-		"flect"
-	],
-	"dependencies": {
-		"@flect/core": "^1.0"
+		"typescript": "5.1.6",
+		"prettier": "3.0.3"
 	},
 	"files": [
 		"dist/**/*",
