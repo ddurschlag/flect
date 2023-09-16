@@ -2,7 +2,7 @@
   <img src="flect.png" width="200px" align="center" alt="flect logo" />
   <h1 align="center">Flect/core</h1>
   <p align="center">
-    Reifiable types for TypeScript
+	Reifiable types for TypeScript
   </p>
 </p>
 
@@ -18,5 +18,5 @@ const Animal = record({
 	sound: stringType
 });
 type Animal = Reify<typeof Animal>;
-const dog: Animal = { legCount: 4, sound: 'woof' };
+const dog: Animal = {legCount: 4, sound: "woof"};
 ```

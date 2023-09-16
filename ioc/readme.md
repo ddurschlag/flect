@@ -2,7 +2,7 @@
   <img src="flect.png" width="200px" align="center" alt="flect logo" />
   <h1 align="center">Flect/ioc</h1>
   <p align="center">
-    Inversion of Control Container for Flect types
+	Inversion of Control Container for Flect types
   </p>
 </p>
 
@@ -28,12 +28,18 @@ const Person = record({
 type Person = Reify<typeof Person>;
 
 class Cat implements Animal {
-	get legCount() { return 4; }
-	get sound() { return "meow"; }
-};
+	get legCount() {
+		return 4;
+	}
+	get sound() {
+		return "meow";
+	}
+}
 
 const c = new Container();
-c.bind(Person).with(Animal).toFactory((a: Animal) => ({ pet: a }));
+c.bind(Person)
+	.with(Animal)
+	.toFactory((a: Animal) => ({pet: a}));
 c.bind(Animal).toFactory(() => new Cat());
 
 console.log(c.resolve(Person).pet.sound); // Goes 'woof'

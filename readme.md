@@ -2,7 +2,7 @@
   <img src="flect.png" width="200px" align="center" alt="flect logo" />
   <h1 align="center">Flect</h1>
   <p align="center">
-    Reifiable types for TypeScript
+	Reifiable types for TypeScript
   </p>
 </p>
 

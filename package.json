@@ -20,5 +20,6 @@
 		"guard",
 		"traverse",
 		"ioc"
-	]
+	],
+	"type": "module"
 }
