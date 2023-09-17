@@ -5,18 +5,20 @@ import {
 	boolType,
 	brand,
 	intersection,
+	mapType,
 	neverType,
 	nullType,
 	numberType,
 	record,
+	setType,
 	stringType,
 	symbolType,
 	union,
 	voidType
 } from "@flect/core";
 import {
-	GenericArrayValidator,
-	GenericRecordValidator,
+	GenericValidator,
+	RecordValidator,
 	GuardChain,
 	defaultGuards,
 	brandRepository,
@@ -64,7 +66,7 @@ describe("@flect/Guard", () => {
 	});
 	test("Union", () => {
 		const v = new GuardChain();
-		const recV = new GenericRecordValidator(v);
+		const recV = new RecordValidator(v);
 		const algV = new AlgebraRepository(v);
 		v.add(defaultGuards);
 		v.add(recV);
@@ -76,7 +78,7 @@ describe("@flect/Guard", () => {
 	});
 	test("Intersection", () => {
 		const v = new GuardChain();
-		const recV = new GenericRecordValidator(v);
+		const recV = new RecordValidator(v);
 		const algV = new AlgebraRepository(v);
 		v.add(defaultGuards);
 		v.add(recV);
@@ -88,7 +90,7 @@ describe("@flect/Guard", () => {
 	});
 	test("Record", () => {
 		const v = new GuardChain();
-		const recV = new GenericRecordValidator(v);
+		const recV = new RecordValidator(v);
 		v.add(defaultGuards);
 		v.add(recV);
 
@@ -98,7 +100,7 @@ describe("@flect/Guard", () => {
 	});
 	test("Array", () => {
 		const v = new GuardChain();
-		const arrV = new GenericArrayValidator(v);
+		const arrV = new GenericValidator(v);
 		v.add(arrV);
 		v.add(defaultGuards);
 
@@ -106,9 +108,44 @@ describe("@flect/Guard", () => {
 		expect(v.get(array(numberType))!([1, "2", 3])).toBe(false);
 		expect(v.get(array(numberType))!(3)).toBe(false);
 	});
+	test("Map", () => {
+		const v = new GuardChain();
+		const arrV = new GenericValidator(v);
+		v.add(arrV);
+		v.add(defaultGuards);
+
+		const good = new Map<string, string>();
+		good.set("3", "4");
+		const bad1 = new Map<number, string>();
+		bad1.set(3, "4");
+		const bad2 = new Map<string, number>();
+		bad2.set("3", 4);
+
+		const setV = v.get(mapType(stringType, stringType))!;
+		expect(setV(good)).toBe(true);
+		expect(setV(bad1)).toBe(false);
+		expect(setV(bad2)).toBe(false);
+		expect(setV("3")).toBe(false);
+	});
+	test("Set", () => {
+		const v = new GuardChain();
+		const arrV = new GenericValidator(v);
+		v.add(arrV);
+		v.add(defaultGuards);
+
+		const good = new Set<string>();
+		good.add("3");
+		const bad = new Set<number>();
+		bad.add(3);
+
+		const setV = v.get(setType(stringType))!;
+		expect(setV(good)).toBe(true);
+		expect(setV(bad)).toBe(false);
+		expect(setV(3)).toBe(false);
+	});
 	test("Recursion", () => {
 		const v = new GuardChain();
-		const recV = new GenericRecordValidator(v);
+		const recV = new RecordValidator(v);
 		v.add(defaultGuards);
 		v.add(recV);
 
@@ -116,8 +153,8 @@ describe("@flect/Guard", () => {
 	});
 	test("Mixed array/object", () => {
 		const v = new GuardChain();
-		const recV = new GenericRecordValidator(v);
-		const arrV = new GenericArrayValidator(v);
+		const recV = new RecordValidator(v);
+		const arrV = new GenericValidator(v);
 		v.add(defaultGuards);
 		v.add(recV);
 		v.add(arrV);
@@ -146,16 +183,28 @@ describe("@flect/Guard", () => {
 	});
 	test("Unsubvalidatable record", () => {
 		const v = new GuardChain();
-		const recV = new GenericRecordValidator(v);
+		const recV = new RecordValidator(v);
 		v.add(recV);
 
 		expect(v.get(Change)).toBeUndefined();
 	});
 	test("Unsubvalidatable array", () => {
 		const v = new GuardChain();
-		const arrV = new GenericArrayValidator(v);
+		const arrV = new GenericValidator(v);
 		v.add(arrV);
 		expect(v.get(array(numberType))).toBeUndefined();
+	});
+	test("Unsubvalidatable map", () => {
+		const v = new GuardChain();
+		const arrV = new GenericValidator(v);
+		v.add(arrV);
+		expect(v.get(mapType(numberType, numberType))).toBeUndefined();
+	});
+	test("Unsubvalidatable Set", () => {
+		const v = new GuardChain();
+		const arrV = new GenericValidator(v);
+		v.add(arrV);
+		expect(v.get(setType(numberType))).toBeUndefined();
 	});
 	test("Unsubvalidatable algebra", () => {
 		const v = new GuardChain();

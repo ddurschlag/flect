@@ -21,7 +21,9 @@ import {
 	neverType,
 	intersection,
 	brand,
-	UnionType
+	UnionType,
+	mapType,
+	setType
 } from "@flect/core";
 
 const Animal = record({
@@ -74,6 +76,39 @@ describe("@flect/core", () => {
 			expect(dog).toBeTruthy();
 			// @ts-expect-error
 			const chair: Animal = {legCount: 4, seat: true};
+		});
+		test("Array type", () => {
+			const StringArray = array(stringType);
+			type StringArray = Reify<typeof StringArray>;
+			const good1: StringArray = ["3", "4"];
+			const good2: StringArray = ["3"];
+			const good3: StringArray = [];
+			// @ts-expect-error
+			const bad1: StringArray = [3];
+			// @ts-expect-error
+			const bad2: StringArray = [3, 4];
+		});
+		test("Map type", () => {
+			const S2sMap = mapType(stringType, stringType);
+			type S2sMap = Reify<typeof S2sMap>;
+			const good: S2sMap = new Map();
+			good.set("3", "4");
+			const bad: S2sMap = new Map();
+			// @ts-expect-error
+			bad.set(3, "4");
+			// @ts-expect-error
+			bad.set("3", 4);
+			// @ts-expect-error
+			bad.set(3, 4);
+		});
+		test("Set type", () => {
+			const StringSet = setType(stringType);
+			type StringSet = Reify<typeof StringSet>;
+			const good: StringSet = new Set();
+			good.add("3");
+			const bad: StringSet = new Set();
+			// @ts-expect-error
+			bad.add(3);
 		});
 		test("Keyof type", () => {
 			const AnimalKeys = keyof(Animal);
