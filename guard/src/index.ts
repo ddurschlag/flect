@@ -2,7 +2,9 @@ import {
 	ArrayType,
 	BrandType,
 	IntersectionType,
+	MapType,
 	RecordType,
+	SetType,
 	Type,
 	UnionType,
 	bigintType,
@@ -156,7 +158,7 @@ function objectHas(
 	return Object.hasOwn(o, k);
 }
 
-export class GenericRecordValidator implements GuardRepository {
+export class RecordValidator implements GuardRepository {
 	constructor(subRepo: GuardRepository) {
 		this._subRepo = subRepo;
 	}
@@ -188,7 +190,7 @@ export class GenericRecordValidator implements GuardRepository {
 	private _subRepo: GuardRepository;
 }
 
-export class GenericArrayValidator implements GuardRepository {
+export class GenericValidator implements GuardRepository {
 	constructor(subRepo: GuardRepository) {
 		this._subRepo = subRepo;
 	}
@@ -205,6 +207,41 @@ export class GenericArrayValidator implements GuardRepository {
 				}
 				for (let i = 0; i < u.length; i++) {
 					if (!subVal(u[i])) {
+						return false;
+					}
+				}
+				return true;
+			};
+		}
+		if (t instanceof MapType) {
+			const keyVal = this._subRepo.get(t.keyType);
+			const valVal = this._subRepo.get(t.valueType);
+			if (keyVal === undefined || valVal === undefined) {
+				return; // Can't validate if we can't find sub-validators
+			}
+			return (u: unknown): u is T => {
+				if (!(u instanceof Map)) {
+					return false;
+				}
+				for (const [k, v] of u.entries()) {
+					if (!keyVal(k) || !valVal(v)) {
+						return false;
+					}
+				}
+				return true;
+			};
+		}
+		if (t instanceof SetType) {
+			const subVal = this._subRepo.get(t.itemType);
+			if (subVal === undefined) {
+				return; // Can't validate if we can't find sub-validators
+			}
+			return (u: unknown): u is T => {
+				if (!(u instanceof Set)) {
+					return false;
+				}
+				for (const v of u.values()) {
+					if (!subVal(v)) {
 						return false;
 					}
 				}

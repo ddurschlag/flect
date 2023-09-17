@@ -20,7 +20,7 @@ const Animal = record({
 type Animal = Reify<typeof Animal>;
 
 const v = new GuardChain();
-const recV = new GenericRecordValidator(v);
+const recV = new RecordValidator(v);
 v.add(defaultGuards);
 v.add(recV);
 

@@ -22,7 +22,16 @@ export function traverse<Reflected extends unknown, Output extends unknown>(
 	t: Type<Reflected>,
 	f: (input: Reflected) => Output
 ) {
-	return function ftraverse(input: Reflected) {
+	return function traverser(input: Reflected) {
 		return f(input);
+	};
+}
+
+export function traverseMapKey<ReflectedKey, ReflectedValue>(
+	t: Type<Map<ReflectedKey, ReflectedValue>>,
+	key: ReflectedKey
+) {
+	return function traverser(input: Map<ReflectedKey, ReflectedValue>) {
+		return input.get(key);
 	};
 }

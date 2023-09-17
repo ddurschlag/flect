@@ -91,6 +91,29 @@ export class ArrayType<ReflectedItem> extends Type<ReflectedItem[]> {
 	public itemType: Type<ReflectedItem>;
 }
 
+export class MapType<ReflectedKey, ReflectedValue> extends Type<
+	Map<ReflectedKey, ReflectedValue>
+> {
+	constructor(key: Type<ReflectedKey>, value: Type<ReflectedValue>) {
+		super();
+		this.keyType = key;
+		this.valueType = value;
+	}
+
+	public keyType: Type<ReflectedKey>;
+
+	public valueType: Type<ReflectedValue>;
+}
+
+export class SetType<ReflectedItem> extends Type<Set<ReflectedItem>> {
+	constructor(type: Type<ReflectedItem>) {
+		super();
+		this.itemType = type;
+	}
+
+	public itemType: Type<ReflectedItem>;
+}
+
 export const stringType = new Type<string>();
 export const numberType = new Type<number>();
 export const bigintType = new Type<bigint>();
@@ -130,6 +153,17 @@ export function index<Reflected, Key extends keyof Reflected>(
 
 export function array<ReflectedItem>(type: Type<ReflectedItem>) {
 	return new ArrayType<ReflectedItem>(type);
+}
+
+export function mapType<ReflectedKey, ReflectedValue>(
+	keyType: Type<ReflectedKey>,
+	valueType: Type<ReflectedValue>
+) {
+	return new MapType(keyType, valueType);
+}
+
+export function setType<ReflectedItem>(type: Type<ReflectedItem>) {
+	return new SetType<ReflectedItem>(type);
 }
 
 export function tuple<Reflected extends readonly [...unknown[]]>(

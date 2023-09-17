@@ -7,9 +7,15 @@ import {
 	union,
 	literal,
 	Union,
-	intersection
+	intersection,
+	mapType
 } from "@flect/core";
-import {traverseIndex, traverseRecord, traverse} from "@flect/traverse";
+import {
+	traverseIndex,
+	traverseRecord,
+	traverse,
+	traverseMapKey
+} from "@flect/traverse";
 
 const Animal = record({
 	legCount: numberType,
@@ -64,5 +70,11 @@ describe("@flect/traverse", () => {
 			name: "steve"
 		};
 		expect(nameSound(steveDog)).toBe("woof steve");
+	});
+	test("Map", () => {
+		const getThree = traverseMapKey(mapType(numberType, stringType), 3);
+		const good = new Map();
+		good.set(3, "foo");
+		expect(getThree(good)).toBe("foo");
 	});
 });
