@@ -23,8 +23,45 @@ import {
 	brand,
 	UnionType,
 	mapType,
-	setType
+	setType,
+	mappedRecord,
+	SourceType,
+	ArrayType,
+	unknownType,
+	voidType,
+	nullType,
+	TupleType,
+	RecordType,
+	Type
 } from "@flect/core";
+
+function assertKeyIsType<
+	Reflected extends Record<string | number, unknown>,
+	TypeCtor extends abstract new (...args: any) => Type
+>(
+	rec: RecordType<Reflected>,
+	k: keyof Reflected extends string | symbol
+		? (string | symbol) & keyof Reflected
+		: string,
+	expectedType: TypeCtor
+) {
+	const propMap = new Map(rec.properties.map(([key, val]) => [key, val]));
+	const propertyValue = propMap.get(k);
+	expect(propertyValue).toBeInstanceOf(expectedType);
+	if (propertyValue instanceof expectedType) {
+		return propertyValue as InstanceType<TypeCtor>;
+	}
+	throw new Error("Wat");
+}
+
+function assertKeyIsNot<Reflected extends Record<string | number, unknown>>(
+	rec: RecordType<Reflected>,
+	k: string
+) {
+	const propMap = new Map(rec.properties.map(([key, val]) => [key, val]));
+	const propertyValue = propMap.get(k);
+	expect(propertyValue).toBeUndefined();
+}
 
 const Animal = record({
 	legCount: numberType,
@@ -160,6 +197,7 @@ describe("@flect/core", () => {
 			type StringNumString = Reify<typeof StringNumString>;
 			const sos: StringNumString = ["s", 0, "s"];
 			expect(sos).toBeTruthy();
+			expect(StringNumString.subsets.length).toBe(3);
 			// @ts-expect-error
 			const oso: StringNumString = [0, "s", 0];
 		});
@@ -273,6 +311,96 @@ describe("@flect/core", () => {
 			expect(myString).toBeTruthy();
 			// @ts-expect-error
 			const myNum: ThreeNumMeansString = 3;
+		});
+		describe("Mapped types", () => {
+			test("Smoke test", () => {
+				const Herd = mappedRecord(Animal, array(SourceType), "allMy", "");
+				type Herd = Reify<typeof Herd>;
+				const good: Herd = {
+					allMyLegCount: [1, 2, 3],
+					allMySound: ["moo", "bah", "la la la"]
+				};
+				expect(Herd.properties.length).toBe(2);
+				assertKeyIsNot(Herd, "legCount");
+				const legs = assertKeyIsType(Herd, "allMyLegCount", ArrayType);
+				expect(legs.itemType).toBe(numberType);
+			});
+			test("Tuple type", () => {
+				const pair = record({tuple: tuple(numberType, numberType)});
+				const pairOfPairs = mappedRecord(
+					pair,
+					tuple(SourceType, SourceType),
+					"",
+					""
+				);
+				const tup = assertKeyIsType(pairOfPairs, "tuple", TupleType);
+				expect(tup.subsets.length).toBe(2);
+			});
+			test("Constant tuple type", () => {
+				const pair = record({tuple: tuple(numberType, numberType)});
+				const otherPairs = mappedRecord(
+					pair,
+					tuple(stringType, stringType),
+					"",
+					""
+				);
+				const tup = assertKeyIsType(otherPairs, "tuple", TupleType);
+				expect(tup.subsets.length).toBe(2);
+			});
+			test("Record type", () => {
+				const hierarchy = record({rec: record({key: numberType})});
+				const MegaHierarchy = mappedRecord(
+					hierarchy,
+					record({old: SourceType}),
+					"",
+					""
+				);
+
+				const recOfOld = assertKeyIsType(MegaHierarchy, "rec", RecordType);
+				assertKeyIsType(recOfOld, "old", RecordType);
+			});
+			test("Constant record type", () => {
+				const hierarchy = record({rec: record({key: numberType})});
+				const OtherHierarchy = mappedRecord(
+					hierarchy,
+					record({myString: stringType}),
+					"",
+					""
+				);
+
+				const recofStrings = assertKeyIsType(OtherHierarchy, "rec", RecordType);
+				expect(recofStrings.properties.length).toBe(1);
+				expect(recofStrings.properties[0][1]).toBe(stringType);
+			});
+			test("Array type", () => {
+				const recOfArr = record({arr: array(stringType)});
+				const arrArr = mappedRecord(recOfArr, array(SourceType), "", "");
+
+				const innerArr = assertKeyIsType(arrArr, "arr", ArrayType);
+				expect(innerArr.itemType).toBeInstanceOf(ArrayType);
+			});
+			test("Constant array type", () => {
+				const recOfArr = record({arr: array(stringType)});
+				const arrArr = mappedRecord(recOfArr, array(stringType), "", "");
+
+				const innerArr = assertKeyIsType(arrArr, "arr", ArrayType);
+				expect(innerArr.itemType).toBe(stringType);
+			});
+			test("Type with numeric key", () => {
+				const doors = record({1: unknownType, 2: numberType, 3: unknownType});
+				const moreDoors = mappedRecord(
+					doors,
+					stringType,
+					"behind_door_number_",
+					""
+				);
+				expect(moreDoors.properties.length).toBe(3);
+			});
+			test("Type with symbol key", () => {
+				const s = Symbol("my-symbol");
+				const weird = record({[s]: voidType});
+				expect(() => mappedRecord(weird, nullType, "foo", "bar")).toThrow();
+			});
 		});
 	});
 });
