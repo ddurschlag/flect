@@ -2,11 +2,10 @@ export class Type<Reflected = unknown> {
 	protected readonly _refl!: Reflected;
 }
 
-// Introduce "Reifiable = Type | ConditionalType" and use throughout?
+// Query: how much of Type can be replaced with Reifiable?
+export type Reifiable = Type | ConditionalType;
 
-export type Reify<T extends Type | ConditionalType> = T extends Type<
-	infer Reflected
->
+export type Reify<T extends Reifiable> = T extends Type<infer Reflected>
 	? Reflected
 	: T extends ConditionalType<infer Extension, infer Base, infer Yes, infer No>
 	? Extension extends Base
