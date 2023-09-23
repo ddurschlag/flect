@@ -1,0 +1,60 @@
+{
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "node",
+			"request": "launch",
+			"name": "Debug core",
+			"skipFiles": ["<node_internals>/**"],
+			"program": "${workspaceRoot}/node_modules/.bin/jest",
+			"env": { "CI": "true" },
+			"args": ["--runInBand", "--no-cache"],
+			"windows": {
+				"program": "${workspaceFolder}/node_modules/jest/bin/jest"
+			},
+			"cwd": "${workspaceFolder}/core"
+		},
+		{
+			"type": "node",
+			"request": "launch",
+			"name": "Debug guard",
+			"skipFiles": ["<node_internals>/**"],
+			"program": "${workspaceRoot}/node_modules/.bin/jest",
+			"env": { "CI": "true" },
+			"args": ["--runInBand", "--no-cache"],
+			"windows": {
+				"program": "${workspaceFolder}/node_modules/jest/bin/jest"
+			},
+			"cwd": "${workspaceFolder}/guard"
+		},
+		{
+			"type": "node",
+			"request": "launch",
+			"name": "Debug ioc",
+			"skipFiles": ["<node_internals>/**"],
+			"program": "${workspaceRoot}/node_modules/.bin/jest",
+			"env": { "CI": "true" },
+			"args": ["--runInBand", "--no-cache"],
+			"windows": {
+				"program": "${workspaceFolder}/node_modules/jest/bin/jest"
+			},
+			"cwd": "${workspaceFolder}/ioc"
+		},
+		{
+			"type": "node",
+			"request": "launch",
+			"name": "Debug traverse",
+			"skipFiles": ["<node_internals>/**"],
+			"program": "${workspaceRoot}/node_modules/.bin/jest",
+			"env": { "CI": "true" },
+			"args": ["--runInBand", "--no-cache"],
+			"windows": {
+				"program": "${workspaceFolder}/node_modules/jest/bin/jest"
+			},
+			"cwd": "${workspaceFolder}/traverse"
+		},
+	]
+}

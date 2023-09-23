@@ -79,6 +79,29 @@ export class RecordType<
 	}[keyof Reflected][]; // see https://github.com/microsoft/TypeScript/issues/13298 for why this type isn't tighter
 }
 
+export class FunctionType<
+	Params extends readonly [...unknown[]],
+	Returns extends unknown
+> extends Type<(...params: Params) => Returns> {
+	constructor(params: ReflectTuple<Params>, returns: Type<Returns>) {
+		super();
+		this._params = params;
+		this._returns = returns;
+	}
+
+	get params() {
+		return this._params;
+	}
+
+	get returns() {
+		return this._returns;
+	}
+
+	private _params: ReflectTuple<Params>;
+
+	private _returns: Type<Returns>;
+}
+
 const brandProp = Symbol("brand-prop");
 export class BrandType<T extends symbol> extends Type<{
 	readonly [brandProp]: T;
@@ -274,7 +297,16 @@ function swap<T extends readonly [...unknown[]], From, To>(
 	from: Type<From>,
 	to: Type<To>
 ): TupleType<SwapTuple<T, From, To>>;
-// function swap<T extends (...args: [...any[]]) => unknown, From, To> //... TODO: FunctionType
+function swap<
+	Params extends readonly [...unknown[]],
+	Returns extends unknown,
+	From,
+	To
+>(
+	type: FunctionType<Params, Returns>,
+	from: Type<From>,
+	to: Type<To>
+): FunctionType<SwapTuple<Params, From, To>, Swap<Returns, From, To>>;
 function swap<T extends Record<string | number, unknown>, From, To>(
 	type: RecordType<T>,
 	from: Type<From>,
@@ -297,9 +329,10 @@ function swap<T, From, To>(
 	if (type instanceof TupleType) {
 		// eslint-disable-next-line @typescript-eslint/no-use-before-define
 		return swapTuple(type, from, to) as any; // TS just can't follow this :(
-		// Need FunctionType support
-		// } else if (type instanceof FunctionType) {
-		// 	return swapFunction(type, from, to);
+	}
+	if (type instanceof FunctionType) {
+		// eslint-disable-next-line @typescript-eslint/no-use-before-define
+		return swapFunction(type, from, to) as any;
 	}
 	if (type instanceof RecordType) {
 		// eslint-disable-next-line @typescript-eslint/no-use-before-define
@@ -340,6 +373,38 @@ function swapTuple<T extends readonly [...unknown[]], From, To>(
 		return new TupleType(subTypes) as any; // TS just can't follow this :(
 	}
 	return type as any; // TS just can't follow this :(
+}
+
+function swapFunction<
+	Params extends readonly [...unknown[]],
+	Returns extends unknown,
+	From,
+	To
+>(
+	type: FunctionType<Params, Returns>,
+	from: Type<From>,
+	to: Type<To>
+): FunctionType<SwapTuple<Params, From, To>, Swap<Returns, From, To>> {
+	const paramTypes = [];
+	let different = false;
+	for (const subType of type.params) {
+		const newSub = swap(subType, from, to);
+		if (newSub === subType) {
+			paramTypes.push(subType);
+		} else {
+			paramTypes.push(newSub);
+			different = true;
+		}
+	}
+	const newReturn = swap(type.returns, from, to);
+
+	if (newReturn !== type.returns) {
+		different = true;
+	}
+	if (different) {
+		return new FunctionType(paramTypes, newReturn) as any;
+	}
+	return type as any;
 }
 
 function swapRecord<T extends Record<string | number, unknown>, From, To>(
@@ -453,7 +518,7 @@ export function functionType<
 	Params extends readonly [...unknown[]],
 	Returns extends unknown
 >(returnType: Type<Returns>, ...parameterTypes: ReflectTuple<Params>) {
-	return new Type<(...args: Params) => Returns>();
+	return new FunctionType(parameterTypes, returnType);
 }
 
 const Generic_1 = Symbol("generic-1");
