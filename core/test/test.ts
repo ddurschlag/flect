@@ -32,7 +32,8 @@ import {
 	nullType,
 	TupleType,
 	RecordType,
-	Type
+	Type,
+	FunctionType
 } from "@flect/core";
 
 function assertKeyIsType<
@@ -58,9 +59,10 @@ function assertKeyIsNot<Reflected extends Record<string | number, unknown>>(
 	rec: RecordType<Reflected>,
 	k: string
 ) {
-	const propMap = new Map(rec.properties.map(([key, val]) => [key, val]));
-	const propertyValue = propMap.get(k);
-	expect(propertyValue).toBeUndefined();
+	const allKeys = rec.properties
+		.map(([key]) => key)
+		.filter((key) => typeof key === "string") as string[];
+	expect(new Set(allKeys).has(k)).toBe(false);
 }
 
 const Animal = record({
@@ -217,6 +219,8 @@ describe("@flect/core", () => {
 		});
 		test("Function type", () => {
 			const StoI = functionType(numberType, stringType);
+			expect(StoI.params.length).toBe(1);
+			expect(StoI.returns).toBe(numberType);
 			type StoI = Reify<typeof StoI>;
 			const len: StoI = (s) => s.length;
 			expect(len).toBeTruthy();
@@ -378,6 +382,38 @@ describe("@flect/core", () => {
 
 				const innerArr = assertKeyIsType(arrArr, "arr", ArrayType);
 				expect(innerArr.itemType).toBeInstanceOf(ArrayType);
+			});
+			describe("Function types", () => {
+				test("Both swap", () => {
+					const recF = record({
+						f: functionType(stringType, numberType, voidType)
+					});
+					const mapRecF = mappedRecord(
+						recF,
+						functionType(SourceType, SourceType),
+						"",
+						"ButNew"
+					);
+					const f = assertKeyIsType(mapRecF, "fButNew", FunctionType);
+					expect(f.params.length).toBe(1);
+					expect(f.params[0]).toBeInstanceOf(FunctionType);
+					expect(f.returns).toBeInstanceOf(FunctionType);
+				});
+				test("Neither swap", () => {
+					const recF = record({
+						f: functionType(stringType, numberType, voidType)
+					});
+					const mapRecF = mappedRecord(
+						recF,
+						functionType(numberType, voidType, stringType),
+						"",
+						"ButNew"
+					);
+					const f = assertKeyIsType(mapRecF, "fButNew", FunctionType);
+					expect(f.params.length).toBe(2);
+					expect(f.params[0]).toBe(voidType);
+					expect(f.returns).toBe(numberType);
+				});
 			});
 			test("Constant array type", () => {
 				const recOfArr = record({arr: array(stringType)});
