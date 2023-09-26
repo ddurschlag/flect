@@ -1,4 +1,4 @@
-import {Type, UnionType, Union, Intersection} from "@flect/core";
+import {Type} from "@flect/core";
 
 export function traverseIndex<Reflected extends unknown>(
 	t: Type<Reflected[]>,
