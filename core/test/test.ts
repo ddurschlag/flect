@@ -33,12 +33,15 @@ import {
 	TupleType,
 	RecordType,
 	Type,
-	FunctionType
+	FunctionType,
+	anyType,
+	boolType
 } from "@flect/core";
 
+type InstanceOf<T> = T extends {prototype: infer R} ? R : never;
 function assertKeyIsType<
 	Reflected extends Record<string | number, unknown>,
-	TypeCtor extends abstract new (...args: any) => Type
+	TypeCtor extends Function
 >(
 	rec: RecordType<Reflected>,
 	k: keyof Reflected extends string | symbol
@@ -50,7 +53,7 @@ function assertKeyIsType<
 	const propertyValue = propMap.get(k);
 	expect(propertyValue).toBeInstanceOf(expectedType);
 	if (propertyValue instanceof expectedType) {
-		return propertyValue as InstanceType<TypeCtor>;
+		return propertyValue as InstanceOf<TypeCtor>;
 	}
 	throw new Error("Wat");
 }
@@ -311,6 +314,10 @@ describe("@flect/core", () => {
 				neverType
 			);
 			type ThreeNumMeansString = Reify<typeof ThreeNumMeansString>;
+			expect(ThreeNumMeansString.extension).toBeTruthy();
+			expect(ThreeNumMeansString.base).toBe(numberType);
+			expect(ThreeNumMeansString.yes).toBe(stringType);
+			expect(ThreeNumMeansString.no).toBe(neverType);
 			const myString: ThreeNumMeansString = "foo!";
 			expect(myString).toBeTruthy();
 			// @ts-expect-error
@@ -326,6 +333,7 @@ describe("@flect/core", () => {
 				};
 				expect(Herd.properties.length).toBe(2);
 				assertKeyIsNot(Herd, "legCount");
+				const x = ArrayType;
 				const legs = assertKeyIsType(Herd, "allMyLegCount", ArrayType);
 				expect(legs.itemType).toBe(numberType);
 			});
@@ -437,6 +445,82 @@ describe("@flect/core", () => {
 				const weird = record({[s]: voidType});
 				expect(() => mappedRecord(weird, nullType, "foo", "bar")).toThrow();
 			});
+		});
+	});
+	describe("Type caching", () => {
+		test("Conditional type", () => {
+			const c1 = conditional(numberType, anyType, numberType, stringType);
+			const c2 = conditional(numberType, anyType, numberType, stringType);
+			const c3 = conditional(numberType, anyType, numberType, boolType);
+			expect(c1).toBe(c2);
+			expect(c1).not.toBe(c3);
+		});
+		test("Record type", () => {
+			const r1 = record({a: stringType, b: numberType});
+			const r2 = record({b: numberType, a: stringType});
+			const r3 = record({a: stringType, b: numberType, c: voidType});
+			const r4 = record({a: numberType, b: numberType});
+
+			expect(r1).toBe(r2);
+			expect(r1).not.toBe(r3);
+			expect(r1).not.toBe(r4);
+			expect(r2).not.toBe(r3);
+			expect(r2).not.toBe(r4);
+			expect(r3).not.toBe(r4);
+		});
+		test("Union type", () => {
+			const u1 = union(numberType, stringType, voidType);
+			const u2 = union(stringType, numberType, voidType);
+			const u3 = union(numberType, voidType, voidType);
+			const u4 = union(numberType, stringType, voidType, voidType);
+
+			expect(u1).toBe(u2);
+			expect(u1).not.toBe(u3);
+			expect(u1).not.toBe(u4);
+		});
+		test("Intersection type", () => {
+			const i1 = intersection(numberType, stringType, voidType);
+			const i2 = intersection(stringType, numberType, voidType);
+			const i3 = intersection(numberType, voidType, voidType);
+			const i4 = intersection(numberType, stringType, voidType, voidType);
+
+			expect(i1).toBe(i2);
+			expect(i1).not.toBe(i3);
+			expect(i1).not.toBe(i4);
+		});
+		test("Map type", () => {
+			const m1 = mapType(stringType, numberType);
+			const m2 = mapType(stringType, numberType);
+			const m3 = mapType(numberType, stringType);
+
+			expect(m1).toBe(m2);
+			expect(m1).not.toBe(m3);
+		});
+		test("Set type", () => {
+			const s1 = setType(stringType);
+			const s2 = setType(stringType);
+			const s3 = setType(numberType);
+
+			expect(s1).toBe(s2);
+			expect(s1).not.toBe(s3);
+		});
+		test("Tuple type", () => {
+			const t1 = tuple(numberType, stringType, voidType);
+			const t2 = tuple(numberType, stringType, voidType);
+			const t3 = tuple(numberType, voidType, voidType);
+			const t4 = tuple(numberType, stringType, voidType, voidType);
+
+			expect(t1).toBe(t2);
+			expect(t1).not.toBe(t3);
+			expect(t1).not.toBe(t4);
+		});
+		test("Array type", () => {
+			const a1 = setType(stringType);
+			const a2 = setType(stringType);
+			const a3 = setType(numberType);
+
+			expect(a1).toBe(a2);
+			expect(a1).not.toBe(a3);
 		});
 	});
 });

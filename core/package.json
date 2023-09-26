@@ -1,6 +1,6 @@
 {
 	"name": "@flect/core",
-	"version": "1.3.0",
+	"version": "2.0.0",
 	"description": "Reifiable types for TypeScript",
 	"keywords": [
 		"typescript",
@@ -9,9 +9,20 @@
 		"node"
 	],
 	"dependencies": {},
-	"main": "./dist/index.js",
 	"module": "/dist/index.js",
-	"exports": "./dist/index.js",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		},
+		"./MemoizationCache": {
+			"types": "./dist/MemoizationCache.d.ts",
+			"import": "./dist/MemoizationCache.js",
+			"default": "./dist/MemoizationCache.js"
+		},
+		"./package.json": "./package.json"
+	},
 	"scripts": {
 		"build": "tsc",
 		"test": "jest",
@@ -44,6 +55,5 @@
 		"dist/**/*",
 		"flect.png"
 	],
-	"types": "./dist/index.d.ts",
 	"license": "MIT"
 }

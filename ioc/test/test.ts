@@ -4,7 +4,8 @@ import {
 	stringType,
 	Reify,
 	functionType,
-	Type
+	Type,
+	array
 } from "@flect/core";
 import {Container, DependencyResolutionError, dep} from "@flect/ioc";
 
@@ -60,20 +61,6 @@ class LocalGroomer implements PetGroomer {
 	private _customer: Person;
 }
 
-const Named = record({sayHello: functionType(stringType, stringType)});
-type Named = Reify<typeof Named>;
-class Human {
-	constructor(name: string) {
-		this._name = name;
-	}
-
-	sayHello(to: string) {
-		return `Hello ${to}, my name is ${this._name}.`;
-	}
-
-	private _name: string;
-}
-
 describe("@flect/ioc", () => {
 	test("Chained resolutions", () => {
 		const c = new Container();
@@ -113,19 +100,15 @@ describe("@flect/ioc", () => {
 		c.bind(PetGroomer).with(Person).toType(LocalGroomer);
 		expect(c.resolve(PetGroomer).getClientNoise()).toBe("woof");
 	});
-	test("Non-object deps", () => {
-		// Note that we create a variable here. Two different
-		// instances of Type with the same type parameter are not the same.
-		// Functionally, this means identity equality is ussed for types,
-		// not structural equality. A structural comparer is plausible,
-		// but would be complex and potentially slow.
-		const personName = new Type<string>();
+	test("Explicit dep", () => {
 		const c = new Container();
-		c.bind(personName).toFactory(() => "steve");
-		c.bind(Named).with(dep(personName)).toType(Human);
-		expect(c.resolve(Named).sayHello("Joe")).toBe(
-			"Hello Joe, my name is steve."
-		);
+		c.bind(Person)
+			.with(dep(Animal))
+			.toFactory((a: Animal) => ({pet: a}));
+		c.bind(Animal).toFactory(() => new Cat());
+		c.bind(Animal, dogKey).toInstance(myDog);
+		c.bind(PetGroomer).with(Person).toType(LocalGroomer);
+		expect(c.resolve(PetGroomer).customer.pet.sound).toBe("meow");
 	});
 	test("Keyed deps", () => {
 		const c = new Container();
@@ -194,5 +177,10 @@ describe("@flect/ioc", () => {
 		const c = new Container();
 		c.bind(Animal).toType(Cat);
 		expect(c.resolve(Animal)).not.toBe(c.resolve(Animal));
+	});
+	test("Separately specified types", () => {
+		const c = new Container();
+		c.bind(array(stringType)).toInstance(["foo", "bar"]);
+		expect(c.resolve(array(stringType))).toEqual(["foo", "bar"]);
 	});
 });

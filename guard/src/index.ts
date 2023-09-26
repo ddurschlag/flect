@@ -79,7 +79,6 @@ export class GuardCache implements GuardRepository {
 	}
 
 	private _inner: GuardRepository;
-
 	private _cache: Map<Type, Guard>;
 }
 

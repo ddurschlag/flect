@@ -1,4 +1,35 @@
-export class Type<Reflected = unknown> {
+import {MemoizationCache} from "./MemoizationCache.js";
+
+const reifiableIdSymbol = Symbol("reifiable-id");
+type ReifiableId = number & {[reifiableIdSymbol]: typeof reifiableIdSymbol};
+let reifiableId = 0;
+function getRefiaibleId() {
+	return reifiableId++ as ReifiableId;
+}
+
+class ReifiableIdentified {
+	constructor() {
+		this[reifiableIdSymbol] = getRefiaibleId();
+	}
+
+	public sortOrder(other: ReifiableIdentified) {
+		return this[reifiableIdSymbol] - other[reifiableIdSymbol];
+	}
+
+	private [reifiableIdSymbol]: ReifiableId;
+}
+
+const MakeType = Symbol("make-type");
+export class Type<Reflected = unknown> extends ReifiableIdentified {
+	protected constructor() {
+		super();
+		this._refl = undefined as Reflected;
+	}
+
+	public static [MakeType]<T>() {
+		return new Type<T>();
+	}
+
 	protected readonly _refl!: Reflected;
 }
 
@@ -18,11 +49,11 @@ type ReflectObject<Reflected extends Record<string | number, unknown>> = {
 type ReflectTuple<Reflected extends readonly [...unknown[]]> = {
 	[K in keyof Reflected]: Type<Reflected[K]>;
 };
-export type Union<Reflected extends readonly [...unknown[]]> =
+type Union<Reflected extends readonly [...unknown[]]> =
 	Reflected extends readonly [infer Head, ...infer Tail]
 		? Head | Union<Tail>
 		: never;
-export type Intersection<Reflected extends readonly [...unknown[]]> =
+type Intersection<Reflected extends readonly [...unknown[]]> =
 	Reflected extends readonly []
 		? unknown
 		: Reflected extends readonly [infer Head, ...infer Tail]
@@ -32,43 +63,106 @@ type EnforceTupling<Tuple extends readonly [...unknown[]]> = readonly [
 	...Tuple
 ];
 
+const conditionalCache = new MemoizationCache<
+	ConditionalType<any, any, any, any>
+>();
+const MakeConditional = Symbol("make-conditional");
 export class ConditionalType<
 	Extension = unknown,
 	Base = unknown,
 	Yes = unknown,
 	No = unknown
-> {
-	constructor(
+> extends ReifiableIdentified {
+	protected constructor(
 		extension: Type<Extension>,
 		base: Type<Base>,
 		yes: Type<Yes>,
 		no: Type<No>
 	) {
+		super();
 		this._extension = extension;
 		this._base = base;
 		this._yes = yes;
 		this._no = no;
 	}
 
+	public static [MakeConditional]<
+		Extension = unknown,
+		Base = unknown,
+		Yes = unknown,
+		No = unknown
+	>(
+		extension: Type<Extension>,
+		base: Type<Base>,
+		yes: Type<Yes>,
+		no: Type<No>
+	) {
+		return conditionalCache.memoize(
+			(e, b, y, n) => new ConditionalType(e, b, y, n),
+			extension,
+			base,
+			yes,
+			no
+		);
+	}
+
+	public get extension() {
+		return this._extension;
+	}
+
+	public get base() {
+		return this._base;
+	}
+
+	public get yes() {
+		return this._yes;
+	}
+
+	public get no() {
+		return this._no;
+	}
+
 	private _extension: Type<Extension>;
-
 	private _base: Type<Base>;
-
 	private _yes: Type<Yes>;
-
 	private _no: Type<No>;
 }
 
+function sortProps(
+	[a]: readonly [string | Symbol, unknown],
+	[b]: readonly [string | Symbol, unknown]
+) {
+	return a.toString() < b.toString() ? -1 : 1; // Properties can't be the same, so either less or greater
+}
+
+const recordCache = new MemoizationCache<RecordType<any>>();
+const MakeRecord = Symbol("make-record");
 export class RecordType<
 	Reflected extends Record<string | number, unknown>
 > extends Type<Reflected> {
-	constructor(type: ReflectObject<Reflected>) {
+	protected constructor(type: ReflectObject<Reflected>) {
 		super();
 		this.properties = Reflect.ownKeys(type).map((key) => [
 			key,
 			Reflect.get(type, key)
 		]) as any;
 		const x = this.properties[0];
+	}
+
+	public static [MakeRecord]<
+		Reflected extends Record<string | number, unknown>
+	>(type: ReflectObject<Reflected>) {
+		const props = Reflect.ownKeys(type).map(
+			(key) => [key, Reflect.get(type, key)] as const
+		);
+		props.sort(sortProps);
+		const c = recordCache.getLayer(...props.flat());
+		let result: RecordType<Reflected> | undefined = c.getValue();
+		if (result === undefined) {
+			result = new RecordType(type);
+			c.setValue(result);
+		}
+		return result;
 	}
 
 	public properties: {
@@ -79,11 +173,13 @@ export class RecordType<
 	}[keyof Reflected][]; // see https://github.com/microsoft/TypeScript/issues/13298 for why this type isn't tighter
 }
 
+const functionCache = new MemoizationCache<FunctionType<any, unknown>>();
+const MakeFunction = Symbol("make-function");
 export class FunctionType<
 	Params extends readonly [...unknown[]],
 	Returns extends unknown
 > extends Type<(...params: Params) => Returns> {
-	constructor(params: ReflectTuple<Params>, returns: Type<Returns>) {
+	protected constructor(params: ReflectTuple<Params>, returns: Type<Returns>) {
 		super();
 		this._params = params;
 		this._returns = returns;
@@ -97,29 +193,61 @@ export class FunctionType<
 		return this._returns;
 	}
 
-	private _params: ReflectTuple<Params>;
+	public static [MakeFunction]<
+		Params extends readonly [...unknown[]],
+		Returns extends unknown
+	>(params: ReflectTuple<Params>, returns: Type<Returns>) {
+		return functionCache.memoize(
+			(ret, ...args) => new FunctionType(args, ret),
+			returns,
+			...params
+		);
+	}
 
+	private _params: ReflectTuple<Params>;
 	private _returns: Type<Returns>;
 }
 
+const brandCache = new MemoizationCache<BrandType<any>>();
 const brandProp = Symbol("brand-prop");
+const MakeBrand = Symbol("make-brand");
 export class BrandType<T extends symbol> extends Type<{
 	readonly [brandProp]: T;
 }> {
-	constructor(symbol: T) {
+	protected constructor(symbol: T) {
 		super();
 		this._symbol = symbol;
+	}
+
+	public static [MakeBrand]<T extends symbol>(symbol: T) {
+		return brandCache.memoize((s) => new BrandType(s), symbol);
 	}
 
 	private _symbol: T;
 }
 
+const unionCache = new MemoizationCache<UnionType<any>>();
+const MakeUnion = Symbol("make-union");
 export class UnionType<Subsets extends readonly [...unknown[]]> extends Type<
 	Union<Subsets>
 > {
-	constructor(subsets: ReflectTuple<Subsets>) {
+	protected constructor(subsets: ReflectTuple<Subsets>) {
 		super();
 		this._subsets = subsets;
+	}
+
+	public static [MakeUnion]<Subsets extends readonly [...unknown[]]>(
+		subsets: ReflectTuple<Subsets>
+	) {
+		const c = unionCache.getLayer(
+			...[...subsets].sort((a, b) => a.sortOrder(b))
+		);
+		let result: UnionType<Subsets> | undefined = c.getValue();
+		if (result === undefined) {
+			result = new UnionType(subsets);
+			c.setValue(result);
+		}
+		return result;
 	}
 
 	get subsets() {
@@ -129,12 +257,28 @@ export class UnionType<Subsets extends readonly [...unknown[]]> extends Type<
 	private _subsets: ReflectTuple<Subsets>;
 }
 
+const intersectionCache = new MemoizationCache<IntersectionType<any>>();
+const MakeIntersection = Symbol("make-intersection");
 export class IntersectionType<
 	Subsets extends readonly [...unknown[]]
 > extends Type<Intersection<Subsets>> {
-	constructor(subsets: ReflectTuple<Subsets>) {
+	protected constructor(subsets: ReflectTuple<Subsets>) {
 		super();
 		this._subsets = subsets;
+	}
+
+	public static [MakeIntersection]<Subsets extends readonly [...unknown[]]>(
+		subsets: ReflectTuple<Subsets>
+	) {
+		const c = intersectionCache.getLayer(
+			...[...subsets].sort((a, b) => a.sortOrder(b))
+		);
+		let result: IntersectionType<Subsets> | undefined = c.getValue();
+		if (result === undefined) {
+			result = new IntersectionType(subsets);
+			c.setValue(result);
+		}
+		return result;
 	}
 
 	get subsets() {
@@ -146,21 +290,35 @@ export class IntersectionType<
 
 // Generic types
 
+const arrayCache = new MemoizationCache<ArrayType<any>>();
+const MakeArray = Symbol("make-array");
 export class ArrayType<ReflectedItem> extends Type<ReflectedItem[]> {
-	constructor(type: Type<ReflectedItem>) {
+	protected constructor(type: Type<ReflectedItem>) {
 		super();
 		this.itemType = type;
+	}
+
+	public static [MakeArray]<ReflectedItem>(type: Type<ReflectedItem>) {
+		return arrayCache.memoize((t) => new ArrayType(t), type);
 	}
 
 	public itemType: Type<ReflectedItem>;
 }
 
+const tupleCache = new MemoizationCache<TupleType<any>>();
+const MakeTuple = Symbol("make-tuple");
 export class TupleType<Reflected extends readonly [...unknown[]]> extends Type<
 	EnforceTupling<Reflected>
 > {
-	constructor(type: ReflectTuple<Reflected>) {
+	protected constructor(type: ReflectTuple<Reflected>) {
 		super();
 		this._subsets = type;
+	}
+
+	public static [MakeTuple]<Reflected extends readonly [...unknown[]]>(
+		type: ReflectTuple<Reflected>
+	) {
+		return tupleCache.memoize((...t) => new TupleType(t), ...type);
 	}
 
 	public get subsets() {
@@ -170,59 +328,73 @@ export class TupleType<Reflected extends readonly [...unknown[]]> extends Type<
 	private _subsets: ReflectTuple<Reflected>;
 }
 
+const mapCache = new MemoizationCache<MapType<any, any>>();
+const MakeMap = Symbol("make-map");
 export class MapType<ReflectedKey, ReflectedValue> extends Type<
 	Map<ReflectedKey, ReflectedValue>
 > {
-	constructor(key: Type<ReflectedKey>, value: Type<ReflectedValue>) {
+	protected constructor(key: Type<ReflectedKey>, value: Type<ReflectedValue>) {
 		super();
 		this.keyType = key;
 		this.valueType = value;
 	}
 
-	public keyType: Type<ReflectedKey>;
+	public static [MakeMap]<ReflectedKey, ReflectedValue>(
+		key: Type<ReflectedKey>,
+		value: Type<ReflectedValue>
+	) {
+		return mapCache.memoize((k, v) => new MapType(k, v), key, value);
+	}
 
+	public keyType: Type<ReflectedKey>;
 	public valueType: Type<ReflectedValue>;
 }
 
+const setCache = new MemoizationCache<SetType<any>>();
+const MakeSet = Symbol("make-set");
 export class SetType<ReflectedItem> extends Type<Set<ReflectedItem>> {
-	constructor(type: Type<ReflectedItem>) {
+	protected constructor(type: Type<ReflectedItem>) {
 		super();
 		this.itemType = type;
+	}
+
+	public static [MakeSet]<ReflectedItem>(type: Type<ReflectedItem>) {
+		return setCache.memoize((t) => new SetType(t), type);
 	}
 
 	public itemType: Type<ReflectedItem>;
 }
 
-export const stringType = new Type<string>();
-export const numberType = new Type<number>();
-export const bigintType = new Type<bigint>();
-export const boolType = new Type<boolean>();
-export const symbolType = new Type<symbol>();
-export const voidType = new Type<void>();
-export const nullType = new Type<null>();
-export const neverType = new Type<never>();
-export const unknownType = new Type<unknown>();
-export const anyType = new Type<any>();
+export const stringType = Type[MakeType]<string>();
+export const numberType = Type[MakeType]<number>();
+export const bigintType = Type[MakeType]<bigint>();
+export const boolType = Type[MakeType]<boolean>();
+export const symbolType = Type[MakeType]<symbol>();
+export const voidType = Type[MakeType]<void>();
+export const nullType = Type[MakeType]<null>();
+export const neverType = Type[MakeType]<never>();
+export const unknownType = Type[MakeType]<unknown>();
+export const anyType = Type[MakeType]<any>();
 
 export function brand<T extends symbol>(t: T) {
-	return new BrandType(t);
+	return BrandType[MakeBrand](t);
 }
 
 export function literal<Reflected extends number | string | boolean>(
 	type: Reflected
 ) {
-	return new Type<Reflected>();
+	return Type[MakeType]<Reflected>();
 }
 
 export function record<Reflected extends Record<string | number, unknown>>(
 	type: ReflectObject<Reflected>
 ) {
-	return new RecordType<Reflected>(type);
+	return RecordType[MakeRecord]<Reflected>(type);
 }
 
 const sourceTypeSymbol = Symbol("source-type");
 type SourceType = typeof sourceTypeSymbol;
-export const SourceType = new Type<SourceType>();
+export const SourceType = Type[MakeType]<SourceType>();
 
 type MaybeCap<K extends string, Prefix extends string> = Prefix extends ""
 	? K
@@ -350,7 +522,7 @@ function swapArray<T, From, To>(
 	if (itemType === type.itemType) {
 		return type as any; // TS just can't follow this :(
 	}
-	return new ArrayType(itemType);
+	return ArrayType[MakeArray](itemType);
 }
 
 function swapTuple<T extends readonly [...unknown[]], From, To>(
@@ -370,7 +542,7 @@ function swapTuple<T extends readonly [...unknown[]], From, To>(
 		}
 	}
 	if (different) {
-		return new TupleType(subTypes) as any; // TS just can't follow this :(
+		return TupleType[MakeTuple](subTypes) as any; // TS just can't follow this :(
 	}
 	return type as any; // TS just can't follow this :(
 }
@@ -402,7 +574,7 @@ function swapFunction<
 		different = true;
 	}
 	if (different) {
-		return new FunctionType(paramTypes, newReturn) as any;
+		return FunctionType[MakeFunction](paramTypes, newReturn) as any;
 	}
 	return type as any;
 }
@@ -426,7 +598,7 @@ function swapRecord<T extends Record<string | number, unknown>, From, To>(
 		}
 	}
 	if (different) {
-		return new RecordType(innerRecordType as any); // TS just can't follow this :(
+		return RecordType[MakeRecord](innerRecordType as any); // TS just can't follow this :(
 	}
 	return type as any; // TS just can't follow this :(
 }
@@ -460,78 +632,80 @@ export function mappedRecord<
 			type
 		) as any;
 	}
-	return new RecordType(reflectedResult as any); // There's no diff-checking here, we always return a new type
+	return RecordType[MakeRecord](reflectedResult as any); // There's no diff-checking here, we always return a new type
 }
 
+// TODO: Needs class
 export function keyof<Reflected>(type: Type<Reflected>) {
-	return new Type<keyof Reflected>();
+	return Type[MakeType]<keyof Reflected>();
 }
 
 // Pretty useless
+// TODO: Needs class
 export function index<Reflected, Key extends keyof Reflected>(
 	type: Type<Reflected>,
 	key: Key
 ) {
-	return new Type<Reflected[Key]>();
+	return Type[MakeType]<Reflected[Key]>();
 }
 
 export function array<ReflectedItem>(type: Type<ReflectedItem>) {
-	return new ArrayType<ReflectedItem>(type);
+	return ArrayType[MakeArray](type);
 }
 
 export function mapType<ReflectedKey, ReflectedValue>(
 	keyType: Type<ReflectedKey>,
 	valueType: Type<ReflectedValue>
 ) {
-	return new MapType(keyType, valueType);
+	return MapType[MakeMap](keyType, valueType);
 }
 
 export function setType<ReflectedItem>(type: Type<ReflectedItem>) {
-	return new SetType<ReflectedItem>(type);
+	return SetType[MakeSet]<ReflectedItem>(type);
 }
 
 export function tuple<Reflected extends readonly [...unknown[]]>(
 	...type: ReflectTuple<Reflected>
 ) {
-	return new TupleType<Reflected>(type);
+	return TupleType[MakeTuple]<Reflected>(type);
 }
 
 export function classType<
 	Reflected extends Function & {new (...args: readonly any[]): unknown}
 >(type: Reflected) {
-	return new Type<InstanceType<Reflected>>();
+	return Type[MakeType]<InstanceType<Reflected>>();
 }
 
 export function union<Subsets extends readonly [...unknown[]]>(
 	...subsets: ReflectTuple<Subsets>
 ) {
-	return new UnionType(subsets);
+	return UnionType[MakeUnion](subsets);
 }
 
 export function intersection<Subsets extends readonly [...unknown[]]>(
 	...subsets: ReflectTuple<Subsets>
 ) {
-	return new IntersectionType(subsets);
+	return IntersectionType[MakeIntersection](subsets);
 }
 
 export function functionType<
 	Params extends readonly [...unknown[]],
 	Returns extends unknown
 >(returnType: Type<Returns>, ...parameterTypes: ReflectTuple<Params>) {
-	return new FunctionType(parameterTypes, returnType);
+	return FunctionType[MakeFunction](parameterTypes, returnType);
 }
 
 const Generic_1 = Symbol("generic-1");
 type Generic_1 = typeof Generic_1;
-export const FIRST_GENERIC_TYPE = new Type<Generic_1>();
+export const FIRST_GENERIC_TYPE = Type[MakeType]<Generic_1>();
 
 const Generic_2 = Symbol("generic-2");
 type Generic_2 = typeof Generic_2;
-export const SECOND_GENERIC_TYPE = new Type<Generic_2>();
+export const SECOND_GENERIC_TYPE = Type[MakeType]<Generic_2>();
 
 const Generic_3 = Symbol("generic-3");
 type Generic_3 = typeof Generic_3;
-export const THIRD_GENERIC_TYPE = new Type<Generic_3>();
+export const THIRD_GENERIC_TYPE = Type[MakeType]<Generic_3>();
 
 type DoubleSwap<T, From_1, To_1, From_2, To_2> = Swap<
 	Swap<T, From_1, To_1>,
@@ -544,22 +718,24 @@ type TripleSwap<T, From_1, To_1, From_2, To_2, From_3, To_3> = Swap<
 	To_3
 >;
 
+// TODO: needs class
 export function singleGenericFunctionType<
 	Returns extends unknown,
 	Params extends readonly [...unknown[]]
 >(returnType: Type<Returns>, ...paramTypes: ReflectTuple<Params>) {
-	return new Type<
+	return Type[MakeType]<
 		<GEN_TYPE_1>(
 			...args: Swap<EnforceTupling<Params>, Generic_1, GEN_TYPE_1>
 		) => Swap<Returns, Generic_1, GEN_TYPE_1>
 	>();
 }
 
+// TODO : needs class
 export function doubleGenericFunctionType<
 	Returns extends unknown,
 	Params extends readonly [...unknown[]]
 >(returnType: Type<Returns>, ...paramTypes: ReflectTuple<Params>) {
-	return new Type<
+	return Type[MakeType]<
 		<GEN_TYPE_1, GEN_TYPE_2>(
 			...args: DoubleSwap<
 				EnforceTupling<Params>,
@@ -572,11 +748,12 @@ export function doubleGenericFunctionType<
 	>();
 }
 
+// TODO: Needs class
 export function tripleGenericFunctionType<
 	Returns extends unknown,
 	Params extends readonly [...unknown[]]
 >(returnType: Type<Returns>, ...paramTypes: ReflectTuple<Params>) {
-	return new Type<
+	return Type[MakeType]<
 		<GEN_TYPE_1, GEN_TYPE_2, GEN_TYPE_3>(
 			...args: TripleSwap<
 				EnforceTupling<Params>,
@@ -605,5 +782,5 @@ export function conditional<Extension, Base, Yes, No>(
 	yes: Type<Yes>,
 	no: Type<No>
 ) {
-	return new ConditionalType(extension, base, yes, no);
+	return ConditionalType[MakeConditional](extension, base, yes, no);
 }

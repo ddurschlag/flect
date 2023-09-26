@@ -156,11 +156,8 @@ class Binder<
 	}
 
 	private _storage: ProviderStorage;
-
 	private _bound: Type<TInterface>;
-
 	private _dependencies: Dependencies<TDepTypes>;
-
 	private _key: KeyType;
 }
 
