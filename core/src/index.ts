@@ -96,7 +96,7 @@ export class ConditionalType<
 		base: Type<Base>,
 		yes: Type<Yes>,
 		no: Type<No>
-	) {
+	): ConditionalType<Extension, Base, Yes, No> {
 		return conditionalCache.memoize(
 			(e, b, y, n) => new ConditionalType(e, b, y, n),
 			extension,
@@ -151,7 +151,7 @@ export class RecordType<
 
 	public static [MakeRecord]<
 		Reflected extends Record<string | number, unknown>
-	>(type: ReflectObject<Reflected>) {
+	>(type: ReflectObject<Reflected>): RecordType<Reflected> {
 		const props = Reflect.ownKeys(type).map(
 			(key) => [key, Reflect.get(type, key)] as const
 		);
@@ -173,7 +173,7 @@ export class RecordType<
 	}[keyof Reflected][]; // see https://github.com/microsoft/TypeScript/issues/13298 for why this type isn't tighter
 }
 
-const functionCache = new MemoizationCache<FunctionType<any, unknown>>();
+const functionCache = new MemoizationCache<FunctionType<any, any>>();
 const MakeFunction = Symbol("make-function");
 export class FunctionType<
 	Params extends readonly [...unknown[]],
@@ -196,7 +196,7 @@ export class FunctionType<
 	public static [MakeFunction]<
 		Params extends readonly [...unknown[]],
 		Returns extends unknown
-	>(params: ReflectTuple<Params>, returns: Type<Returns>) {
+	>(params: ReflectTuple<Params>, returns: Type<Returns>): FunctionType<Params, Returns> {
 		return functionCache.memoize(
 			(ret, ...args) => new FunctionType(args, ret),
 			returns,
@@ -219,7 +219,7 @@ export class BrandType<T extends symbol> extends Type<{
 		this._symbol = symbol;
 	}
 
-	public static [MakeBrand]<T extends symbol>(symbol: T) {
+	public static [MakeBrand]<T extends symbol>(symbol: T): BrandType<T> {
 		return brandCache.memoize((s) => new BrandType(s), symbol);
 	}
 
@@ -238,7 +238,7 @@ export class UnionType<Subsets extends readonly [...unknown[]]> extends Type<
 
 	public static [MakeUnion]<Subsets extends readonly [...unknown[]]>(
 		subsets: ReflectTuple<Subsets>
-	) {
+	): UnionType<Subsets> {
 		const c = unionCache.getLayer(
 			...[...subsets].sort((a, b) => a.sortOrder(b))
 		);
@@ -269,7 +269,7 @@ export class IntersectionType<
 
 	public static [MakeIntersection]<Subsets extends readonly [...unknown[]]>(
 		subsets: ReflectTuple<Subsets>
-	) {
+	): IntersectionType<Subsets> {
 		const c = intersectionCache.getLayer(
 			...[...subsets].sort((a, b) => a.sortOrder(b))
 		);
@@ -298,7 +298,7 @@ export class ArrayType<ReflectedItem> extends Type<ReflectedItem[]> {
 		this.itemType = type;
 	}
 
-	public static [MakeArray]<ReflectedItem>(type: Type<ReflectedItem>) {
+	public static [MakeArray]<ReflectedItem>(type: Type<ReflectedItem>): ArrayType<ReflectedItem> {
 		return arrayCache.memoize((t) => new ArrayType(t), type);
 	}
 
@@ -317,7 +317,7 @@ export class TupleType<Reflected extends readonly [...unknown[]]> extends Type<
 
 	public static [MakeTuple]<Reflected extends readonly [...unknown[]]>(
 		type: ReflectTuple<Reflected>
-	) {
+	): TupleType<Reflected> {
 		return tupleCache.memoize((...t) => new TupleType(t), ...type);
 	}
 
@@ -342,7 +342,7 @@ export class MapType<ReflectedKey, ReflectedValue> extends Type<
 	public static [MakeMap]<ReflectedKey, ReflectedValue>(
 		key: Type<ReflectedKey>,
 		value: Type<ReflectedValue>
-	) {
+	): MapType<ReflectedKey, ReflectedValue> {
 		return mapCache.memoize((k, v) => new MapType(k, v), key, value);
 	}
 
@@ -358,7 +358,7 @@ export class SetType<ReflectedItem> extends Type<Set<ReflectedItem>> {
 		this.itemType = type;
 	}
 
-	public static [MakeSet]<ReflectedItem>(type: Type<ReflectedItem>) {
+	public static [MakeSet]<ReflectedItem>(type: Type<ReflectedItem>): SetType<ReflectedItem> {
 		return setCache.memoize((t) => new SetType(t), type);
 	}
 
