@@ -1,6 +1,6 @@
 {
 	"name": "@flect/ioc",
-	"version": "3.0.0",
+	"version": "3.0.1",
 	"description": "Inversion of control container for flect",
 	"keywords": [
 		"typescript",

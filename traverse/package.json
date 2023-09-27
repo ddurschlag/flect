@@ -1,6 +1,6 @@
 {
 	"name": "@flect/traverse",
-	"version": "2.0.0",
+	"version": "2.0.1",
 	"description": "Data traversal for flect types",
 	"keywords": [
 		"typescript",
