@@ -1,4 +1,4 @@
-import {MemoizationCache} from "./MemoizationCache.js";
+import {MemoizationCache} from "@flect/core/MemoizationCache";
 
 const reifiableIdSymbol = Symbol("reifiable-id");
 type ReifiableId = number & {[reifiableIdSymbol]: typeof reifiableIdSymbol};
@@ -196,7 +196,10 @@ export class FunctionType<
 	public static [MakeFunction]<
 		Params extends readonly [...unknown[]],
 		Returns extends unknown
-	>(params: ReflectTuple<Params>, returns: Type<Returns>): FunctionType<Params, Returns> {
+	>(
+		params: ReflectTuple<Params>,
+		returns: Type<Returns>
+	): FunctionType<Params, Returns> {
 		return functionCache.memoize(
 			(ret, ...args) => new FunctionType(args, ret),
 			returns,
@@ -298,7 +301,9 @@ export class ArrayType<ReflectedItem> extends Type<ReflectedItem[]> {
 		this.itemType = type;
 	}
 
-	public static [MakeArray]<ReflectedItem>(type: Type<ReflectedItem>): ArrayType<ReflectedItem> {
+	public static [MakeArray]<ReflectedItem>(
+		type: Type<ReflectedItem>
+	): ArrayType<ReflectedItem> {
 		return arrayCache.memoize((t) => new ArrayType(t), type);
 	}
 
@@ -358,7 +363,9 @@ export class SetType<ReflectedItem> extends Type<Set<ReflectedItem>> {
 		this.itemType = type;
 	}
 
-	public static [MakeSet]<ReflectedItem>(type: Type<ReflectedItem>): SetType<ReflectedItem> {
+	public static [MakeSet]<ReflectedItem>(
+		type: Type<ReflectedItem>
+	): SetType<ReflectedItem> {
 		return setCache.memoize((t) => new SetType(t), type);
 	}
 

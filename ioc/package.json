@@ -20,10 +20,17 @@
 		"ioc container"
 	],
 	"dependencies": {
-		"@flect/core": "^1.0"
+		"@flect/core": "*"
 	},
 	"module": "/dist/index.js",
-	"exports": "./dist/index.js",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		},
+		"./package.json": "./package.json"
+	},
 	"scripts": {
 		"build": "tsc",
 		"test": "jest",
