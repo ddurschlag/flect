@@ -151,7 +151,9 @@ class Binder<
 		});
 	}
 
-	// TODO FIX: Make instance use parameters!
+	// TODO FIX: toInstance ignores params, which is weird.
+	// Maybe split into "raw" binder and parameterized one?
+	// Or add explicit lazy-cached-factory support?
 
 	public toInstance(instance: TInterface) {
 		return this.toFactory(() => instance);
