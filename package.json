@@ -6,6 +6,13 @@
 		"reflection",
 		"types"
 	],
+	"scripts": {
+		"fix": "nx run-many -t fix",
+		"build": "nx run-many -t build",
+		"test": "nx run-many -t test",
+		"test-types": "nx run-many -t test-types",
+		"verify": "nx run-many -t verify"
+	},
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/ddurschlag/flect"
@@ -15,6 +22,10 @@
 		"url": "https://github.com/ddurschlag"	
 	},
 	"license": "MIT",
+	"devDependencies": {
+		"nx": "16.9.1",
+		"@nx/js": "16.9.1"
+	},
 	"workspaces": [
 		"core",
 		"guard",
