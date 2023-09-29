@@ -6,7 +6,6 @@ import {
 	array,
 	union,
 	literal,
-	Union,
 	intersection,
 	mapType
 } from "@flect/core";
