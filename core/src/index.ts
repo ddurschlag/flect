@@ -7,12 +7,13 @@ function getRefiaibleId() {
 	return reifiableId++ as ReifiableId;
 }
 
+const sortOrder = Symbol("sort-order");
 class ReifiableIdentified {
 	constructor() {
 		this[reifiableIdSymbol] = getRefiaibleId();
 	}
 
-	public sortOrder(other: ReifiableIdentified) {
+	public [sortOrder](other: ReifiableIdentified) {
 		return this[reifiableIdSymbol] - other[reifiableIdSymbol];
 	}
 
@@ -243,7 +244,7 @@ export class UnionType<Subsets extends readonly [...unknown[]]> extends Type<
 		subsets: ReflectTuple<Subsets>
 	): UnionType<Subsets> {
 		const c = unionCache.getLayer(
-			...[...subsets].sort((a, b) => a.sortOrder(b))
+			...[...subsets].sort((a, b) => a[sortOrder](b))
 		);
 		let result: UnionType<Subsets> | undefined = c.getValue();
 		if (result === undefined) {
@@ -274,7 +275,7 @@ export class IntersectionType<
 		subsets: ReflectTuple<Subsets>
 	): IntersectionType<Subsets> {
 		const c = intersectionCache.getLayer(
-			...[...subsets].sort((a, b) => a.sortOrder(b))
+			...[...subsets].sort((a, b) => a[sortOrder](b))
 		);
 		let result: IntersectionType<Subsets> | undefined = c.getValue();
 		if (result === undefined) {
@@ -292,6 +293,29 @@ export class IntersectionType<
 }
 
 // Generic types
+
+const readonlyCache = new MemoizationCache<ReadonlyType<any>>();
+const MakeReadonly = Symbol("make-readonly");
+export class ReadonlyType<ReflectedType> extends Type<
+	DeepReadonly<ReflectedType>
+> {
+	protected constructor(type: Type<ReflectedType>) {
+		super();
+		this._type = type;
+	}
+
+	public static [MakeReadonly]<ReflectedType>(
+		type: Type<ReflectedType>
+	): ReadonlyType<ReflectedType> {
+		return readonlyCache.memoize((t) => new ReadonlyType(t), type);
+	}
+
+	public get type() {
+		return this._type;
+	}
+
+	private _type: Type<ReflectedType>;
+}
 
 const arrayCache = new MemoizationCache<ArrayType<any>>();
 const MakeArray = Symbol("make-array");
@@ -372,6 +396,39 @@ export class SetType<ReflectedItem> extends Type<Set<ReflectedItem>> {
 	public itemType: Type<ReflectedItem>;
 }
 
+export type DeepReadonly<T> = T extends (infer R)[]
+	? DeepReadonlyArray<R>
+	: T extends readonly [...infer TUP]
+	? DeepReadonlyTuple<TUP>
+	: T extends (...args: readonly [...infer ARGS]) => infer RET
+	? DeepReadonlyFunction<ARGS, RET>
+	: T extends Map<infer K, infer V>
+	? DeepReadonlyMap<K, V>
+	: T extends Set<infer V>
+	? DeepReadonlySet<V>
+	: T extends object
+	? DeepReadonlyObject<T>
+	: T;
+export interface DeepReadonlyArray<T> extends ReadonlyArray<DeepReadonly<T>> {}
+export type DeepReadonlyTuple<T extends readonly [...unknown[]]> = {
+	readonly [P in keyof T]: DeepReadonly<T[P]>;
+};
+export type DeepReadonlyFunction<ARGS extends readonly [...unknown[]], RET> = (
+	...args: {
+		readonly [P in keyof ARGS]: DeepReadonly<ARGS[P]>;
+	}
+) => DeepReadonly<RET>;
+export type DeepReadonlyObject<T> = {
+	readonly [P in keyof T]: DeepReadonly<T[P]>;
+};
+export type DeepReadonlyMap<K, V> = ReadonlyMap<
+	DeepReadonly<K>,
+	DeepReadonly<V>
+>;
+export type DeepReadonlySet<V> = ReadonlySet<DeepReadonly<V>>;
+
+// TODO: Introduce readonly wrapper
+
 export const stringType = Type[MakeType]<string>();
 export const numberType = Type[MakeType]<number>();
 export const bigintType = Type[MakeType]<bigint>();
@@ -439,6 +496,10 @@ type Swap<T, From, To> = T extends unknown[]
 	? SwapTuple<T, From, To>
 	: T extends (...args: [...any[]]) => unknown
 	? SwapFunction<T, From, To>
+	: T extends Map<any, any>
+	? SwapMap<T, From, To>
+	: T extends Set<any>
+	? SwapSet<T, From, To>
 	: T extends object
 	? SwapObject<T, From, To>
 	: SwapValue<T, From, To>;
@@ -454,6 +515,15 @@ type SwapArray<ArrayType extends unknown[], From, To> = ArrayType extends Array<
 	infer T
 >
 	? Array<Swap<T, From, To>>
+	: never;
+type SwapMap<T extends Map<any, any>, From, To> = T extends Map<
+	infer K,
+	infer V
+>
+	? Map<Swap<K, From, To>, Swap<V, From, To>>
+	: never;
+type SwapSet<SetType extends Set<any>, From, To> = SetType extends Set<infer T>
+	? Set<Swap<T, From, To>>
 	: never;
 type SwapObject<ObjectType extends object, From, To> = {
 	[P in keyof ObjectType]: Swap<ObjectType[P], From, To>;
@@ -517,7 +587,59 @@ function swap<T, From, To>(
 		// eslint-disable-next-line @typescript-eslint/no-use-before-define
 		return swapRecord(type, from, to) as any; // TS just can't follow this :(
 	}
+	if (type instanceof UnionType) {
+		// eslint-disable-next-line @typescript-eslint/no-use-before-define
+		return swapUnion(type, from, to) as any; // TS just can't follow this :(
+	}
+	if (type instanceof IntersectionType) {
+		// eslint-disable-next-line @typescript-eslint/no-use-before-define
+		return swapIntersection(type, from, to) as any; // TS just can't follow this :(
+	}
 	return ((type as any) === from ? to : type) as any; // TS just can't follow this :(
+}
+
+function swapUnion<T extends readonly [...unknown[]], From, To>(
+	type: UnionType<T>,
+	from: Type<From>,
+	to: Type<To>
+): SwapValue<T, From, To> {
+	const subTypes = [];
+	let different = false;
+	for (const subType of type.subsets) {
+		const newSub = swap(subType, from, to);
+		if (newSub === subType) {
+			subTypes.push(subType);
+		} else {
+			subTypes.push(newSub);
+			different = true;
+		}
+	}
+	if (different) {
+		return UnionType[MakeUnion](subTypes) as any; // TS just can't follow this :(
+	}
+	return type as any; // TS just can't follow this :(
+}
+
+function swapIntersection<T extends readonly [...unknown[]], From, To>(
+	type: IntersectionType<T>,
+	from: Type<From>,
+	to: Type<To>
+): SwapValue<T, From, To> {
+	const subTypes = [];
+	let different = false;
+	for (const subType of type.subsets) {
+		const newSub = swap(subType, from, to);
+		if (newSub === subType) {
+			subTypes.push(subType);
+		} else {
+			subTypes.push(newSub);
+			different = true;
+		}
+	}
+	if (different) {
+		return IntersectionType[MakeIntersection](subTypes) as any; // TS just can't follow this :(
+	}
+	return type as any; // TS just can't follow this :(
 }
 
 function swapArray<T, From, To>(
@@ -701,6 +823,12 @@ export function functionType<
 >(returnType: Type<Returns>, ...parameterTypes: ReflectTuple<Params>) {
 	return FunctionType[MakeFunction](parameterTypes, returnType);
 }
+
+export function readonly<ReflectedType>(type: Type<ReflectedType>) {
+	return ReadonlyType[MakeReadonly](type);
+}
+
+// TODO: Add "generic function" type(s?) that wrap the underlying FunctionType
 
 const Generic_1 = Symbol("generic-1");
 type Generic_1 = typeof Generic_1;

@@ -151,6 +151,8 @@ class Binder<
 		});
 	}
 
+	// TODO FIX: Make instance use parameters!
+
 	public toInstance(instance: TInterface) {
 		return this.toFactory(() => instance);
 	}

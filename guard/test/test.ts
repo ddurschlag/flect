@@ -9,6 +9,7 @@ import {
 	neverType,
 	nullType,
 	numberType,
+	readonly,
 	record,
 	setType,
 	stringType,
@@ -23,7 +24,8 @@ import {
 	defaultGuards,
 	brandRepository,
 	AlgebraRepository,
-	GuardCache
+	GuardCache,
+	ReadonlyRepository
 } from "@flect/guard";
 
 const Animal = record({
@@ -66,11 +68,9 @@ describe("@flect/Guard", () => {
 	});
 	test("Union", () => {
 		const v = new GuardChain();
-		const recV = new RecordValidator(v);
-		const algV = new AlgebraRepository(v);
 		v.add(defaultGuards);
-		v.add(recV);
-		v.add(algV);
+		v.addLoopRepo(RecordValidator);
+		v.addLoopRepo(AlgebraRepository);
 
 		expect(v.get(PersonOrPet)!(steve)).toBe(true);
 		expect(v.get(PersonOrPet)!(dog)).toBe(true);
@@ -78,11 +78,9 @@ describe("@flect/Guard", () => {
 	});
 	test("Intersection", () => {
 		const v = new GuardChain();
-		const recV = new RecordValidator(v);
-		const algV = new AlgebraRepository(v);
 		v.add(defaultGuards);
-		v.add(recV);
-		v.add(algV);
+		v.addLoopRepo(RecordValidator);
+		v.addLoopRepo(AlgebraRepository);
 
 		expect(v.get(PersonAndPet)!(steve)).toBe(false);
 		expect(v.get(PersonAndPet)!(dog)).toBe(false);
@@ -90,9 +88,8 @@ describe("@flect/Guard", () => {
 	});
 	test("Record", () => {
 		const v = new GuardChain();
-		const recV = new RecordValidator(v);
 		v.add(defaultGuards);
-		v.add(recV);
+		v.addLoopRepo(RecordValidator);
 
 		expect(v.get(Animal)!({legCount: 3, sound: "woof"})).toBe(true);
 		expect(v.get(Animal)!({bork: "woof"})).toBe(false);
@@ -100,9 +97,8 @@ describe("@flect/Guard", () => {
 	});
 	test("Array", () => {
 		const v = new GuardChain();
-		const arrV = new GenericValidator(v);
-		v.add(arrV);
 		v.add(defaultGuards);
+		v.addLoopRepo(GenericValidator);
 
 		expect(v.get(array(numberType))!([1, 2, 3])).toBe(true);
 		expect(v.get(array(numberType))!([1, "2", 3])).toBe(false);
@@ -110,9 +106,8 @@ describe("@flect/Guard", () => {
 	});
 	test("Map", () => {
 		const v = new GuardChain();
-		const arrV = new GenericValidator(v);
-		v.add(arrV);
 		v.add(defaultGuards);
+		v.addLoopRepo(GenericValidator);
 
 		const good = new Map<string, string>();
 		good.set("3", "4");
@@ -129,9 +124,8 @@ describe("@flect/Guard", () => {
 	});
 	test("Set", () => {
 		const v = new GuardChain();
-		const arrV = new GenericValidator(v);
-		v.add(arrV);
 		v.add(defaultGuards);
+		v.addLoopRepo(GenericValidator);
 
 		const good = new Set<string>();
 		good.add("3");
@@ -143,11 +137,18 @@ describe("@flect/Guard", () => {
 		expect(setV(bad)).toBe(false);
 		expect(setV(3)).toBe(false);
 	});
+	test("Readonly", () => {
+		const v = new GuardChain();
+		v.add(defaultGuards);
+		v.addLoopRepo(ReadonlyRepository);
+		const roNumGuard = v.get(readonly(numberType))!;
+		expect(roNumGuard(3)).toBe(true);
+		expect(roNumGuard("3")).toBe(false);
+	});
 	test("Recursion", () => {
 		const v = new GuardChain();
-		const recV = new RecordValidator(v);
 		v.add(defaultGuards);
-		v.add(recV);
+		v.addLoopRepo(RecordValidator);
 
 		expect(v.get(Person)!(steve)).toBe(true);
 	});
@@ -161,7 +162,7 @@ describe("@flect/Guard", () => {
 
 		const r1 = [true, false];
 		const r2 = [false, true, true];
-		const r3 = [];
+		const r3: boolean[] = [];
 		const notR = [3];
 
 		expect(

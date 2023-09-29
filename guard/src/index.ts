@@ -3,6 +3,7 @@ import {
 	BrandType,
 	IntersectionType,
 	MapType,
+	ReadonlyType,
 	RecordType,
 	SetType,
 	Type,
@@ -46,6 +47,10 @@ export class GuardChain implements GuardRepository {
 
 	public add(r: GuardRepository) {
 		this._chain.push(r);
+	}
+
+	public addLoopRepo(T: {new (subRepo: GuardRepository): GuardRepository}) {
+		this.add(new T(this));
 	}
 
 	public get<T>(t: Type<T>) {
@@ -102,6 +107,20 @@ export const brandRepository: GuardRepository = {
 		}
 	}
 };
+
+export class ReadonlyRepository implements GuardRepository {
+	constructor(subRepo: GuardRepository) {
+		this._subRepo = subRepo;
+	}
+
+	public get<T>(t: Type<T>) {
+		if (t instanceof ReadonlyType) {
+			return this._subRepo.get(t.type);
+		}
+	}
+
+	private _subRepo: GuardRepository;
+}
 
 export class AlgebraRepository implements GuardRepository {
 	constructor(subRepo: GuardRepository) {
