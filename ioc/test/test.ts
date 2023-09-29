@@ -7,7 +7,12 @@ import {
 	Type,
 	array
 } from "@flect/core";
-import {Container, DependencyResolutionError, dep} from "@flect/ioc";
+import {
+	Container,
+	DependencyResolutionError,
+	FLECT_CONSTRUCTOR_PARAMS,
+	dep
+} from "@flect/ioc";
 
 const Animal = record({
 	legCount: numberType,
@@ -52,6 +57,10 @@ type DomesticPair = Reify<typeof DomesticPair>;
 class LocalGroomer implements PetGroomer {
 	constructor(public customer: Person) {
 		this._customer = customer;
+	}
+
+	public static [FLECT_CONSTRUCTOR_PARAMS]() {
+		return [Person] as const;
 	}
 
 	getClientNoise() {
@@ -99,6 +108,35 @@ describe("@flect/ioc", () => {
 		c.bind(Person).toInstance(steve);
 		c.bind(PetGroomer).with(Person).toType(LocalGroomer);
 		expect(c.resolve(PetGroomer).getClientNoise()).toBe("woof");
+	});
+	test("Flect classes", () => {
+		const c = new Container();
+		c.bind(Person).toInstance(steve);
+		c.bind(PetGroomer).toFlectType(LocalGroomer);
+		expect(c.resolve(PetGroomer).getClientNoise()).toBe("woof");
+	});
+	test("Non-flect class can't masquerade", () => {
+		const c = new Container();
+		expect(() => {
+			// @ts-expect-error
+			c.bind(Animal).toFlectType(Cat);
+		}).toThrow();
+	});
+	test("Wrong flect-types are wrong", () => {
+		class WrongWrong {
+			constructor(a: number) {
+				this.A = a;
+			}
+
+			public static [FLECT_CONSTRUCTOR_PARAMS]() {
+				return [stringType] as const;
+			}
+
+			public A: number;
+		}
+		const c = new Container();
+		// @ts-expect-error
+		c.bind(record({A: numberType})).toFlectType(WrongWrong);
 	});
 	test("Explicit dep", () => {
 		const c = new Container();

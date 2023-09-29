@@ -60,6 +60,20 @@ type Implementor<
 	TDeps extends readonly [...unknown[]]
 > = {new (...args: TDeps): TInterface};
 
+export const FLECT_CONSTRUCTOR_PARAMS = Symbol("flect-constructor-params");
+
+// Stolen from core. Some better way to re-use without exposing?
+type ReflectTuple<Reflected extends readonly [...unknown[]]> = {
+	readonly [K in keyof Reflected]: Type<Reflected[K]>;
+};
+
+type FlectImplementor<
+	TInterface extends unknown,
+	TDeps extends readonly [...unknown[]]
+> = Implementor<TInterface, TDeps> & {
+	[FLECT_CONSTRUCTOR_PARAMS]: () => ReflectTuple<TDeps>;
+};
+
 export class DependencyResolutionError extends Error {
 	constructor(
 		public bound: Injectable,
@@ -104,7 +118,6 @@ class ProviderStorage {
 }
 
 // Fluent builder for implementation provision
-// Should these be reduced to underlying types, with wrapping done in params?
 class Binder<
 	TInterface extends unknown,
 	TDepTypes extends readonly [...unknown[]]
@@ -151,18 +164,32 @@ class Binder<
 		});
 	}
 
-	// TODO FIX: toInstance ignores params, which is weird.
-	// Maybe split into "raw" binder and parameterized one?
-	// Or add explicit lazy-cached-factory support?
+	private _storage: ProviderStorage;
+	private _bound: Type<TInterface>;
+	private _dependencies: Dependencies<TDepTypes>;
+	private _key: KeyType;
+}
+
+// Fluent builder for implementation provision
+// Root of fluent chain
+class RootBinder<TInterface extends unknown> extends Binder<
+	TInterface,
+	readonly []
+> {
+	constructor(storage: ProviderStorage, bound: Type<TInterface>, key: KeyType) {
+		super(storage, bound, [] as const, key);
+	}
 
 	public toInstance(instance: TInterface) {
 		return this.toFactory(() => instance);
 	}
 
-	private _storage: ProviderStorage;
-	private _bound: Type<TInterface>;
-	private _dependencies: Dependencies<TDepTypes>;
-	private _key: KeyType;
+	public toFlectType<TDepTypes extends readonly [...unknown[]]>(
+		Implementor: FlectImplementor<TInterface, TDepTypes>
+	) {
+		const params = Implementor[FLECT_CONSTRUCTOR_PARAMS]();
+		return this.with<TDepTypes>(...params).toType(Implementor); // Would be nice if TS could infer this and we could drop <TDepTypes>
+	}
 }
 
 // IoC container. Bind stuff in, resolve stuff out.
@@ -177,7 +204,7 @@ export class Container {
 		bound: Type<TInterface>,
 		key: KeyType = null
 	) {
-		return new Binder(this._storage, bound, [] as const, key);
+		return new RootBinder(this._storage, bound, key);
 	}
 
 	// Resolve a type with optional key. Will resolve
