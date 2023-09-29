@@ -35,7 +35,11 @@ import {
 	Type,
 	FunctionType,
 	anyType,
-	boolType
+	boolType,
+	IntersectionType,
+	readonly,
+	MapType,
+	SetType
 } from "@flect/core";
 
 type InstanceOf<T> = T extends {prototype: infer R} ? R : never;
@@ -268,6 +272,28 @@ describe("@flect/core", () => {
 				return result;
 			};
 		});
+		test("Generic union", () => {
+			const OrNumber = singleGenericFunctionType(
+				union(FIRST_GENERIC_TYPE, numberType)
+			);
+			type OrNumber = Reify<typeof OrNumber>;
+			const butReallyAlwaysThree: OrNumber = () => 3;
+			expect(butReallyAlwaysThree).toBeTruthy();
+			// @ts-expect-error
+			const reallyAlwaysString: OrNumber = () => "3";
+		});
+		test("Generic intersection", () => {
+			const FancyId = singleGenericFunctionType(
+				intersection(FIRST_GENERIC_TYPE, unknownType),
+				FIRST_GENERIC_TYPE
+			);
+			type FancyId = Reify<typeof FancyId>;
+			const fancyId: FancyId = <T>(t: T) => t;
+			expect(fancyId).toBeTruthy();
+			// @ts-expect-error
+			const reallyAlwaysString: FancyId = <T>(t: T) => "3";
+		});
+
 		test("Double generic function", () => {
 			const Pairing = doubleGenericFunctionType(
 				tuple(FIRST_GENERIC_TYPE, SECOND_GENERIC_TYPE),
@@ -322,6 +348,84 @@ describe("@flect/core", () => {
 			expect(myString).toBeTruthy();
 			// @ts-expect-error
 			const myNum: ThreeNumMeansString = 3;
+		});
+		describe("Readonly type", () => {
+			test("No effect on primitives", () => {
+				// No such thing as an immutable primitive in JS
+				const Useless = readonly(numberType);
+				type Useless = Reify<typeof Useless>;
+				let itsThree: Useless = 3;
+				itsThree++;
+				expect(Useless.type).toBe(numberType);
+				// @ts-expect-error
+				const otherThree: Useless = "3";
+			});
+			test("Arrays become fixed", () => {
+				const RoA = readonly(array(numberType));
+				type RoA = Reify<typeof RoA>;
+				const threeThreeForever: RoA = [3, 3];
+				expect(threeThreeForever[0]).toBe(3);
+				expect(RoA.type).toBeInstanceOf(ArrayType);
+				// @ts-expect-error
+				threeThreeForever[0] = 5;
+			});
+			test("Tuples become fixed", () => {
+				const RoT = readonly(tuple(stringType, numberType));
+				type RoT = Reify<typeof RoT>;
+				const threeThreeVariety: RoT = ["3", 3];
+				expect(RoT.type).toBeInstanceOf(TupleType);
+				// @ts-expect-error
+				const wrongOrder: RoT = [3, "3"];
+				// @ts-expect-error
+				const shortCount: RoT = [3];
+				// @ts-expect-error
+				const longCount: RoT = ["3", 3, "3"];
+			});
+			test("Functions are unchanged", () => {
+				const UselessF = readonly(functionType(voidType));
+				type UselessF = Reify<typeof UselessF>;
+				const nothing: UselessF = () => {};
+				expect(nothing).not.toThrow();
+				expect(UselessF.type).toBeInstanceOf(FunctionType);
+				// @ts-expect-error
+				const something: UselessF = (a: string) => a;
+			});
+			test("Maps become fixed", () => {
+				const RoM = readonly(mapType(numberType, stringType));
+				type RoM = Reify<typeof RoM>;
+				const writableMap: Map<number, string> = new Map();
+				writableMap.set(1, "1");
+				writableMap.set(2, "2");
+				const rom: RoM = writableMap;
+				expect(rom.get(1)).toBe("1");
+				expect(RoM.type).toBeInstanceOf(MapType);
+				// @ts-expect-error
+				rom.set(3, "3");
+			});
+			test("Sets become fixed", () => {
+				const RoS = readonly(setType(numberType));
+				type RoS = Reify<typeof RoS>;
+				const writableSet = new Set<number>();
+				writableSet.add(3);
+				const ros: RoS = writableSet;
+				expect(ros.has(3)).toBe(true);
+				expect(RoS.type).toBeInstanceOf(SetType);
+				// @ts-expect-error
+				ros.add(4);
+			});
+			test("Records become fixed", () => {
+				const RoO = readonly(record({a: array(array(numberType))}));
+				type RoO = Reify<typeof RoO>;
+				const roo: RoO = {a: [[1, 2], [3]]};
+				expect(roo.a[1][0]).toBe(3);
+				expect(RoO.type).toBeInstanceOf(RecordType);
+				// @ts-expect-error
+				roo.a = [[]];
+				// @ts-expect-error
+				roo.a[0] = [];
+				// @ts-expect-error
+				roo.a[0][0]++;
+			});
 		});
 		describe("Mapped types", () => {
 			test("Smoke test", () => {
@@ -444,6 +548,44 @@ describe("@flect/core", () => {
 				const s = Symbol("my-symbol");
 				const weird = record({[s]: voidType});
 				expect(() => mappedRecord(weird, nullType, "foo", "bar")).toThrow();
+			});
+			test("Type with union", () => {
+				const ClearData = record({age: numberType});
+				type ClearData = Reify<typeof ClearData>;
+				const MaybeSerialized = mappedRecord(
+					ClearData,
+					union(SourceType, stringType),
+					"",
+					""
+				);
+				const JustAUnion = mappedRecord(
+					ClearData,
+					union(numberType, stringType),
+					"",
+					""
+				);
+				expect(MaybeSerialized.properties.length).toBe(1);
+				expect(MaybeSerialized.properties[0][1]).toBeInstanceOf(UnionType);
+			});
+			test("Type with intersection", () => {
+				const ClearData = record({age: numberType});
+				type ClearData = Reify<typeof ClearData>;
+				const AlsoSerialized = mappedRecord(
+					ClearData,
+					intersection(SourceType, stringType),
+					"",
+					""
+				);
+				const JustAnIntersection = mappedRecord(
+					ClearData,
+					intersection(numberType, stringType),
+					"",
+					""
+				);
+				expect(AlsoSerialized.properties.length).toBe(1);
+				expect(AlsoSerialized.properties[0][1]).toBeInstanceOf(
+					IntersectionType
+				);
 			});
 		});
 	});
