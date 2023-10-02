@@ -1,30 +1,24 @@
 {
-	"extends": ["airbnb-base", "airbnb-typescript"],
+	"extends": ["airbnb-base", "airbnb-typescript", "eslint-config-prettier"],
 	"parserOptions": {
 		"project": "./tsconfig.eslint.json"
 	},
 	"rules": {
-		"no-tabs": "off",
-		"@typescript-eslint/indent": "off",
-		"max-len": "off",
-		"no-mixed-spaces-and-tabs": "off",
-		"@typescript-eslint/no-redeclare": "off",
-		"no-plusplus": "off",
-		"@typescript-eslint/no-unused-vars": "off",
-		"react/jsx-filename-extension": "off",
-		"max-classes-per-file": "off",
+		"@typescript-eslint/lines-between-class-members": "off",
 		"@typescript-eslint/naming-convention": "off",
-		"no-underscore-dangle": "off",
-		"@typescript-eslint/object-curly-spacing": "off",
-		"@typescript-eslint/comma-dangle": "off",
-		"implicit-arrow-linebreak": "off",
+		"@typescript-eslint/no-redeclare": "off",
+		"@typescript-eslint/no-unused-vars": "off",
 		"@typescript-eslint/quotes": "off",
-		"function-paren-newline": "off",
-		"no-restricted-syntax": "off",
 		"class-methods-use-this": "off",
 		"consistent-return": "off",
-		"@typescript-eslint/lines-between-class-members": "off",
-		"import/prefer-default-export": "off"
+		"import/prefer-default-export": "off",
+		"max-classes-per-file": "off",
+		"max-len": "off",
+		"no-plusplus": "off",
+		"no-restricted-syntax": "off",
+		"no-tabs": "off",
+		"no-underscore-dangle": "off",
+		"react/jsx-filename-extension": "off"
 	},
 	"ignorePatterns": ["*.js", "dist/**", "coverage/**"]
 }
