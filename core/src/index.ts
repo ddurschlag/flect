@@ -1,38 +1,7 @@
 import {MemoizationCache} from "@flect/core/MemoizationCache";
+import {MakeType, ReifiableIdentified, Type, sortOrder} from "./type.js";
 
-const reifiableIdSymbol = Symbol("reifiable-id");
-type ReifiableId = number & {[reifiableIdSymbol]: typeof reifiableIdSymbol};
-let reifiableId = 0;
-function getRefiaibleId() {
-	return reifiableId++ as ReifiableId;
-}
-
-const sortOrder = Symbol("sort-order");
-class ReifiableIdentified {
-	constructor() {
-		this[reifiableIdSymbol] = getRefiaibleId();
-	}
-
-	public [sortOrder](other: ReifiableIdentified) {
-		return this[reifiableIdSymbol] - other[reifiableIdSymbol];
-	}
-
-	private [reifiableIdSymbol]: ReifiableId;
-}
-
-const MakeType = Symbol("make-type");
-export class Type<Reflected = unknown> extends ReifiableIdentified {
-	protected constructor() {
-		super();
-		this._refl = undefined as Reflected;
-	}
-
-	public static [MakeType]<T>() {
-		return new Type<T>();
-	}
-
-	protected readonly _refl!: Reflected;
-}
+export {Type};
 
 // Query: how much of Type can be replaced with Reifiable?
 export type Reifiable = Type | ConditionalType;
@@ -427,8 +396,6 @@ export type DeepReadonlyMap<K, V> = ReadonlyMap<
 >;
 export type DeepReadonlySet<V> = ReadonlySet<DeepReadonly<V>>;
 
-// TODO: Introduce readonly wrapper
-
 export const stringType = Type[MakeType]<string>();
 export const numberType = Type[MakeType]<number>();
 export const bigintType = Type[MakeType]<bigint>();
@@ -443,6 +410,8 @@ export const anyType = Type[MakeType]<any>();
 export function brand<T extends symbol>(t: T) {
 	return BrandType[MakeBrand](t);
 }
+
+// TODO: LiteralType
 
 export function literal<Reflected extends number | string | boolean>(
 	type: Reflected
