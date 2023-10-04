@@ -342,6 +342,26 @@ describe("@flect/core", () => {
 				third: 0
 			});
 		});
+		test("Generic functione equality", () => {
+			const g2 = doubleGenericFunctionType(
+				FIRST_GENERIC_TYPE,
+				FIRST_GENERIC_TYPE,
+				SECOND_GENERIC_TYPE
+			);
+			const g3 = tripleGenericFunctionType(
+				FIRST_GENERIC_TYPE,
+				FIRST_GENERIC_TYPE,
+				SECOND_GENERIC_TYPE
+			);
+			const g2b = doubleGenericFunctionType(
+				FIRST_GENERIC_TYPE,
+				FIRST_GENERIC_TYPE,
+				SECOND_GENERIC_TYPE
+			);
+
+			expect(g2).toBe(g2b);
+			expect(g2).not.toBe(g3);
+		});
 		test("Conditional type", () => {
 			const ThreeNumMeansString = conditional(
 				literal(3),
