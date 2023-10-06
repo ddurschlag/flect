@@ -241,6 +241,11 @@ describe("@flect/core", () => {
 				FIRST_GENERIC_TYPE
 			);
 			type CountOfThingToThings = Reify<typeof CountOfThingToThings>;
+			expect(CountOfThingToThings.params.length).toBe(2);
+			expect(CountOfThingToThings.returns).toBeInstanceOf(ArrayType);
+			expect(
+				(CountOfThingToThings.returns as ArrayType<unknown>).itemType
+			).toBe(FIRST_GENERIC_TYPE);
 			const repeat: CountOfThingToThings = <T>(repCount: number, item: T) => {
 				const result: T[] = [];
 				for (let i = 0; i < repCount; i++) {
@@ -301,6 +306,9 @@ describe("@flect/core", () => {
 				SECOND_GENERIC_TYPE
 			);
 			type Pairing = Reify<typeof Pairing>;
+			expect(Pairing.params.length).toBe(2);
+			expect(Pairing.params[0]).toBe(FIRST_GENERIC_TYPE);
+			expect(Pairing.returns).toBeInstanceOf(TupleType);
 			const pair: Pairing = <T, U>(t: T, u: U) => [t, u] as const;
 			expect(pair).toBeTruthy();
 			// @ts-expect-error
@@ -319,6 +327,8 @@ describe("@flect/core", () => {
 				THIRD_GENERIC_TYPE
 			);
 			type LabelThreeThings = Reify<typeof LabelThreeThings>;
+			expect(LabelThreeThings.params.length).toBe(3);
+			expect(LabelThreeThings.returns).toBeInstanceOf(RecordType);
 			const label: LabelThreeThings = <T, U, V>(
 				first: T,
 				second: U,
@@ -331,6 +341,26 @@ describe("@flect/core", () => {
 				second,
 				third: 0
 			});
+		});
+		test("Generic functione equality", () => {
+			const g2 = doubleGenericFunctionType(
+				FIRST_GENERIC_TYPE,
+				FIRST_GENERIC_TYPE,
+				SECOND_GENERIC_TYPE
+			);
+			const g3 = tripleGenericFunctionType(
+				FIRST_GENERIC_TYPE,
+				FIRST_GENERIC_TYPE,
+				SECOND_GENERIC_TYPE
+			);
+			const g2b = doubleGenericFunctionType(
+				FIRST_GENERIC_TYPE,
+				FIRST_GENERIC_TYPE,
+				SECOND_GENERIC_TYPE
+			);
+
+			expect(g2).toBe(g2b);
+			expect(g2).not.toBe(g3);
 		});
 		test("Conditional type", () => {
 			const ThreeNumMeansString = conditional(

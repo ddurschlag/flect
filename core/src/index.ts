@@ -181,6 +181,160 @@ export class FunctionType<
 	private _returns: Type<Returns>;
 }
 
+const singleGenericfunctionCache = new MemoizationCache<
+	SingleGenericFunctionType<any, any>
+>();
+const MakeSingleGenericFunction = Symbol("make-single-generic-function");
+export class SingleGenericFunctionType<
+	Params extends readonly [...unknown[]],
+	Returns extends unknown
+> extends Type<
+	<GEN_TYPE_1>(
+		...args: Swap<EnforceTupling<Params>, Generic_1, GEN_TYPE_1>
+	) => Swap<Returns, Generic_1, GEN_TYPE_1>
+> {
+	protected constructor(params: ReflectTuple<Params>, returns: Type<Returns>) {
+		super();
+		this._params = params;
+		this._returns = returns;
+	}
+
+	get params() {
+		return this._params;
+	}
+
+	get returns() {
+		return this._returns;
+	}
+
+	public static [MakeSingleGenericFunction]<
+		Params extends readonly [...unknown[]],
+		Returns extends unknown
+	>(
+		params: ReflectTuple<Params>,
+		returns: Type<Returns>
+	): SingleGenericFunctionType<Params, Returns> {
+		return singleGenericfunctionCache.memoize(
+			(ret, ...args) => new SingleGenericFunctionType(args, ret),
+			returns,
+			...params
+		);
+	}
+
+	private _params: ReflectTuple<Params>;
+	private _returns: Type<Returns>;
+}
+
+const doubleGenericfunctionCache = new MemoizationCache<
+	DoubleGenericFunctionType<any, any>
+>();
+const MakeDoubleGenericFunction = Symbol("make-double-generic-function");
+export class DoubleGenericFunctionType<
+	Params extends readonly [...unknown[]],
+	Returns extends unknown
+> extends Type<
+	<GEN_TYPE_1, GEN_TYPE_2>(
+		...args: DoubleSwap<
+			EnforceTupling<Params>,
+			Generic_1,
+			GEN_TYPE_1,
+			Generic_2,
+			GEN_TYPE_2
+		>
+	) => DoubleSwap<Returns, Generic_1, GEN_TYPE_1, Generic_2, GEN_TYPE_2>
+> {
+	protected constructor(params: ReflectTuple<Params>, returns: Type<Returns>) {
+		super();
+		this._params = params;
+		this._returns = returns;
+	}
+
+	get params() {
+		return this._params;
+	}
+
+	get returns() {
+		return this._returns;
+	}
+
+	public static [MakeDoubleGenericFunction]<
+		Params extends readonly [...unknown[]],
+		Returns extends unknown
+	>(
+		params: ReflectTuple<Params>,
+		returns: Type<Returns>
+	): DoubleGenericFunctionType<Params, Returns> {
+		return doubleGenericfunctionCache.memoize(
+			(ret, ...args) => new DoubleGenericFunctionType(args, ret) as any,
+			returns,
+			...params
+		) as any; // Excessive stack depth comparing types 'DoubleGenericFunctionType<?, Returns>' and 'DoubleGenericFunctionType<?, Returns>'.ts(2321)
+	}
+
+	private _params: ReflectTuple<Params>;
+	private _returns: Type<Returns>;
+}
+
+const tripleGenericfunctionCache = new MemoizationCache<
+	TripleGenericFunctionType<any, any>
+>();
+const MakeTripleGenericFunction = Symbol("make-triple-generic-function");
+export class TripleGenericFunctionType<
+	Params extends readonly [...unknown[]],
+	Returns extends unknown
+> extends Type<
+	<GEN_TYPE_1, GEN_TYPE_2, GEN_TYPE_3>(
+		...args: TripleSwap<
+			EnforceTupling<Params>,
+			Generic_1,
+			GEN_TYPE_1,
+			Generic_2,
+			GEN_TYPE_2,
+			Generic_3,
+			GEN_TYPE_3
+		>
+	) => TripleSwap<
+		Returns,
+		Generic_1,
+		GEN_TYPE_1,
+		Generic_2,
+		GEN_TYPE_2,
+		Generic_3,
+		GEN_TYPE_3
+	>
+> {
+	protected constructor(params: ReflectTuple<Params>, returns: Type<Returns>) {
+		super();
+		this._params = params;
+		this._returns = returns;
+	}
+
+	get params() {
+		return this._params;
+	}
+
+	get returns() {
+		return this._returns;
+	}
+
+	public static [MakeTripleGenericFunction]<
+		Params extends readonly [...unknown[]],
+		Returns extends unknown
+	>(
+		params: ReflectTuple<Params>,
+		returns: Type<Returns>
+	): TripleGenericFunctionType<Params, Returns> {
+		return tripleGenericfunctionCache.memoize(
+			(ret, ...args) => new TripleGenericFunctionType(args, ret) as any,
+			returns,
+			...params
+		) as any; // Excessive stack depth comparing types 'TripleGenericFunctionType<?, Returns>' and 'TripleGenericFunctionType<?, Returns>'.ts(2321)
+	}
+
+	private _params: ReflectTuple<Params>;
+	private _returns: Type<Returns>;
+}
+
 const brandCache = new MemoizationCache<BrandType<any>>();
 const brandProp = Symbol("brand-prop");
 const MakeBrand = Symbol("make-brand");
@@ -797,8 +951,6 @@ export function readonly<ReflectedType>(type: Type<ReflectedType>) {
 	return ReadonlyType[MakeReadonly](type);
 }
 
-// TODO: Add "generic function" type(s?) that wrap the underlying FunctionType
-
 const Generic_1 = Symbol("generic-1");
 type Generic_1 = typeof Generic_1;
 export const FIRST_GENERIC_TYPE = Type[MakeType]<Generic_1>();
@@ -822,62 +974,34 @@ type TripleSwap<T, From_1, To_1, From_2, To_2, From_3, To_3> = Swap<
 	To_3
 >;
 
-// TODO: needs class
 export function singleGenericFunctionType<
 	Returns extends unknown,
 	Params extends readonly [...unknown[]]
 >(returnType: Type<Returns>, ...paramTypes: ReflectTuple<Params>) {
-	return Type[MakeType]<
-		<GEN_TYPE_1>(
-			...args: Swap<EnforceTupling<Params>, Generic_1, GEN_TYPE_1>
-		) => Swap<Returns, Generic_1, GEN_TYPE_1>
-	>();
+	return SingleGenericFunctionType[MakeSingleGenericFunction](
+		paramTypes,
+		returnType
+	);
 }
 
-// TODO : needs class
 export function doubleGenericFunctionType<
 	Returns extends unknown,
 	Params extends readonly [...unknown[]]
 >(returnType: Type<Returns>, ...paramTypes: ReflectTuple<Params>) {
-	return Type[MakeType]<
-		<GEN_TYPE_1, GEN_TYPE_2>(
-			...args: DoubleSwap<
-				EnforceTupling<Params>,
-				Generic_1,
-				GEN_TYPE_1,
-				Generic_2,
-				GEN_TYPE_2
-			>
-		) => DoubleSwap<Returns, Generic_1, GEN_TYPE_1, Generic_2, GEN_TYPE_2>
-	>();
+	return DoubleGenericFunctionType[MakeDoubleGenericFunction](
+		paramTypes,
+		returnType
+	);
 }
 
-// TODO: Needs class
 export function tripleGenericFunctionType<
 	Returns extends unknown,
 	Params extends readonly [...unknown[]]
 >(returnType: Type<Returns>, ...paramTypes: ReflectTuple<Params>) {
-	return Type[MakeType]<
-		<GEN_TYPE_1, GEN_TYPE_2, GEN_TYPE_3>(
-			...args: TripleSwap<
-				EnforceTupling<Params>,
-				Generic_1,
-				GEN_TYPE_1,
-				Generic_2,
-				GEN_TYPE_2,
-				Generic_3,
-				GEN_TYPE_3
-			>
-		) => TripleSwap<
-			Returns,
-			Generic_1,
-			GEN_TYPE_1,
-			Generic_2,
-			GEN_TYPE_2,
-			Generic_3,
-			GEN_TYPE_3
-		>
-	>();
+	return TripleGenericFunctionType[MakeTripleGenericFunction](
+		paramTypes,
+		returnType
+	);
 }
 
 export function conditional<Extension, Base, Yes, No>(

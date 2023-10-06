@@ -1,6 +1,6 @@
 {
 	"name": "@flect/core",
-	"version": "2.2.0",
+	"version": "2.3.0",
 	"description": "Reifiable types for TypeScript",
 	"keywords": [
 		"typescript",
