@@ -623,16 +623,23 @@ type Swap<T, From, To> = T extends unknown[]
 	? SwapMap<T, From, To>
 	: T extends Set<any>
 	? SwapSet<T, From, To>
-	: T extends object
+	: // : T extends {
+	// 		readonly [brandProp]: any;
+	//   }
+	// ? T // brand type
+	T extends object
 	? SwapObject<T, From, To>
 	: SwapValue<T, From, To>;
 type SwapValue<Value, From, To> = Value extends From ? To : Value;
 type SwapTuple<
 	Tuple extends readonly [...unknown[]],
 	From,
-	To
-> = Tuple extends readonly [infer Head, ...infer Rest]
-	? readonly [Swap<Head, From, To>, ...SwapTuple<Rest, From, To>]
+	To,
+	Output extends readonly [...unknown[]] = readonly []
+> = Tuple extends readonly []
+	? Output
+	: Tuple extends readonly [infer Head, ...infer Rest]
+	? SwapTuple<Rest, From, To, readonly [...Output, Head]>
 	: readonly [];
 type SwapArray<ArrayType extends unknown[], From, To> = ArrayType extends Array<
 	infer T
