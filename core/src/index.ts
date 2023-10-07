@@ -182,21 +182,27 @@ export class FunctionType<
 }
 
 const singleGenericfunctionCache = new MemoizationCache<
-	SingleGenericFunctionType<any, any>
+	SingleGenericFunctionType<any, any, any>
 >();
 const MakeSingleGenericFunction = Symbol("make-single-generic-function");
 export class SingleGenericFunctionType<
 	Params extends readonly [...unknown[]],
-	Returns extends unknown
+	Returns extends unknown,
+	FirstConstraint extends unknown
 > extends Type<
-	<GEN_TYPE_1>(
+	<GEN_TYPE_1 extends Swap<FirstConstraint, Generic_1, GEN_TYPE_1>>(
 		...args: Swap<EnforceTupling<Params>, Generic_1, GEN_TYPE_1>
 	) => Swap<Returns, Generic_1, GEN_TYPE_1>
 > {
-	protected constructor(params: ReflectTuple<Params>, returns: Type<Returns>) {
+	protected constructor(
+		params: ReflectTuple<Params>,
+		returns: Type<Returns>,
+		firstConstraint: Type<FirstConstraint>
+	) {
 		super();
 		this._params = params;
 		this._returns = returns;
+		this._firstConstraint = firstConstraint;
 	}
 
 	get params() {
@@ -207,15 +213,23 @@ export class SingleGenericFunctionType<
 		return this._returns;
 	}
 
+	get firstConstraint() {
+		return this._firstConstraint;
+	}
+
 	public static [MakeSingleGenericFunction]<
 		Params extends readonly [...unknown[]],
-		Returns extends unknown
+		Returns extends unknown,
+		FirstConstraint extends unknown
 	>(
 		params: ReflectTuple<Params>,
-		returns: Type<Returns>
-	): SingleGenericFunctionType<Params, Returns> {
+		returns: Type<Returns>,
+		firstConstraint: Type<FirstConstraint>
+	): SingleGenericFunctionType<Params, Returns, FirstConstraint> {
 		return singleGenericfunctionCache.memoize(
-			(ret, ...args) => new SingleGenericFunctionType(args, ret),
+			(constr1, ret, ...args) =>
+				new SingleGenericFunctionType(args, ret, constr1),
+			firstConstraint,
 			returns,
 			...params
 		);
@@ -223,17 +237,35 @@ export class SingleGenericFunctionType<
 
 	private _params: ReflectTuple<Params>;
 	private _returns: Type<Returns>;
+	private _firstConstraint: Type<FirstConstraint>;
 }
 
 const doubleGenericfunctionCache = new MemoizationCache<
-	DoubleGenericFunctionType<any, any>
+	DoubleGenericFunctionType<any, any, any, any>
 >();
 const MakeDoubleGenericFunction = Symbol("make-double-generic-function");
 export class DoubleGenericFunctionType<
 	Params extends readonly [...unknown[]],
-	Returns extends unknown
+	Returns extends unknown,
+	FirstConstraint extends unknown,
+	SecondConstraint extends unknown
 > extends Type<
-	<GEN_TYPE_1, GEN_TYPE_2>(
+	<
+		GEN_TYPE_1 extends DoubleSwap<
+			FirstConstraint,
+			Generic_1,
+			GEN_TYPE_1,
+			Generic_2,
+			GEN_TYPE_2
+		>,
+		GEN_TYPE_2 extends DoubleSwap<
+			SecondConstraint,
+			Generic_1,
+			GEN_TYPE_1,
+			Generic_2,
+			GEN_TYPE_2
+		>
+	>(
 		...args: DoubleSwap<
 			EnforceTupling<Params>,
 			Generic_1,
@@ -243,10 +275,17 @@ export class DoubleGenericFunctionType<
 		>
 	) => DoubleSwap<Returns, Generic_1, GEN_TYPE_1, Generic_2, GEN_TYPE_2>
 > {
-	protected constructor(params: ReflectTuple<Params>, returns: Type<Returns>) {
+	protected constructor(
+		params: ReflectTuple<Params>,
+		returns: Type<Returns>,
+		firstConstraint: Type<FirstConstraint>,
+		secondConstraint: Type<SecondConstraint>
+	) {
 		super();
 		this._params = params;
 		this._returns = returns;
+		this._firstConstraint = firstConstraint;
+		this._secondConstraint = secondConstraint;
 	}
 
 	get params() {
@@ -257,22 +296,44 @@ export class DoubleGenericFunctionType<
 		return this._returns;
 	}
 
+	get firstConstraint() {
+		return this._firstConstraint;
+	}
+
+	get secondConstraint() {
+		return this._secondConstraint;
+	}
+
 	public static [MakeDoubleGenericFunction]<
 		Params extends readonly [...unknown[]],
-		Returns extends unknown
+		Returns extends unknown,
+		FirstConstraint extends unknown,
+		SecondConstraint extends unknown
 	>(
 		params: ReflectTuple<Params>,
-		returns: Type<Returns>
-	): DoubleGenericFunctionType<Params, Returns> {
+		returns: Type<Returns>,
+		firstConstraint: Type<FirstConstraint>,
+		secondConstraint: Type<SecondConstraint>
+	): DoubleGenericFunctionType<
+		Params,
+		Returns,
+		FirstConstraint,
+		SecondConstraint
+	> {
 		return doubleGenericfunctionCache.memoize(
-			(ret, ...args) => new DoubleGenericFunctionType(args, ret) as any,
+			(constr1, constr2, ret, ...args) =>
+				new DoubleGenericFunctionType(args, ret, constr1, constr2) as any,
+			firstConstraint,
+			secondConstraint,
 			returns,
 			...params
-		) as any; // Excessive stack depth comparing types 'DoubleGenericFunctionType<?, Returns>' and 'DoubleGenericFunctionType<?, Returns>'.ts(2321)
+		); // Excessive stack depth comparing types 'DoubleGenericFunctionType<?, Returns>' and 'DoubleGenericFunctionType<?, Returns>'.ts(2321)
 	}
 
 	private _params: ReflectTuple<Params>;
 	private _returns: Type<Returns>;
+	private _firstConstraint: Type<FirstConstraint>;
+	private _secondConstraint: Type<SecondConstraint>;
 }
 
 const tripleGenericfunctionCache = new MemoizationCache<
@@ -999,21 +1060,36 @@ type TripleSwap<T, From_1, To_1, From_2, To_2, From_3, To_3> = Swap<
 
 export function singleGenericFunctionType<
 	Returns extends unknown,
-	Params extends readonly [...unknown[]]
->(returnType: Type<Returns>, ...paramTypes: ReflectTuple<Params>) {
+	Params extends readonly [...unknown[]],
+	FirstConstraint extends unknown
+>(
+	firstConstraint: Type<FirstConstraint>,
+	returnType: Type<Returns>,
+	...paramTypes: ReflectTuple<Params>
+) {
 	return SingleGenericFunctionType[MakeSingleGenericFunction](
 		paramTypes,
-		returnType
+		returnType,
+		firstConstraint
 	);
 }
 
 export function doubleGenericFunctionType<
 	Returns extends unknown,
-	Params extends readonly [...unknown[]]
->(returnType: Type<Returns>, ...paramTypes: ReflectTuple<Params>) {
+	Params extends readonly [...unknown[]],
+	FirstConstraint extends unknown,
+	SecondConstraint extends unknown
+>(
+	firstConstraint: Type<FirstConstraint>,
+	secondConstraint: Type<SecondConstraint>,
+	returnType: Type<Returns>,
+	...paramTypes: ReflectTuple<Params>
+) {
 	return DoubleGenericFunctionType[MakeDoubleGenericFunction](
 		paramTypes,
-		returnType
+		returnType,
+		firstConstraint,
+		secondConstraint
 	);
 }
 

@@ -236,6 +236,7 @@ describe("@flect/core", () => {
 		});
 		test("Single generic function", () => {
 			const CountOfThingToThings = singleGenericFunctionType(
+				unknownType,
 				array(FIRST_GENERIC_TYPE),
 				numberType,
 				FIRST_GENERIC_TYPE
@@ -277,8 +278,30 @@ describe("@flect/core", () => {
 				return result;
 			};
 		});
+		test("Constrainted single generic", () => {
+			const HasLengthSignature = singleGenericFunctionType(
+				array(unknownType),
+				boolType,
+				FIRST_GENERIC_TYPE,
+				numberType
+			);
+			type HasLengthSignature = Reify<typeof HasLengthSignature>;
+			const hasLength: HasLengthSignature = <T extends unknown[]>(
+				t: T,
+				x: number
+			) => t.length >= x;
+			expect(hasLength([1, 2, 3], 2)).toBe(true);
+			expect(hasLength([1], 2)).toBe(false);
+			expect(HasLengthSignature.firstConstraint).toBeInstanceOf(ArrayType);
+			// @ts-expect-error
+			const overconstrained: HasLengthSignature = <T extends [string]>(
+				t: T,
+				x: number
+			) => true;
+		});
 		test("Generic union", () => {
 			const OrNumber = singleGenericFunctionType(
+				unknownType,
 				union(FIRST_GENERIC_TYPE, numberType)
 			);
 			type OrNumber = Reify<typeof OrNumber>;
@@ -289,6 +312,7 @@ describe("@flect/core", () => {
 		});
 		test("Generic intersection", () => {
 			const FancyId = singleGenericFunctionType(
+				unknownType,
 				intersection(FIRST_GENERIC_TYPE, unknownType),
 				FIRST_GENERIC_TYPE
 			);
@@ -303,6 +327,7 @@ describe("@flect/core", () => {
 			const MyBrand = brand(symbol);
 			type MyBrand = Reify<typeof MyBrand>;
 			const MyFactory = singleGenericFunctionType(
+				unknownType,
 				intersection(FIRST_GENERIC_TYPE, MyBrand),
 				FIRST_GENERIC_TYPE
 			);
@@ -316,6 +341,7 @@ describe("@flect/core", () => {
 			const MyBrand = brand(symbol);
 			type MyBrand = Reify<typeof MyBrand>;
 			const MyFactory = singleGenericFunctionType(
+				unknownType,
 				union(FIRST_GENERIC_TYPE, MyBrand),
 				FIRST_GENERIC_TYPE
 			);
@@ -327,6 +353,8 @@ describe("@flect/core", () => {
 
 		test("Double generic function", () => {
 			const Pairing = doubleGenericFunctionType(
+				unknownType,
+				unknownType,
 				tuple(FIRST_GENERIC_TYPE, SECOND_GENERIC_TYPE),
 				FIRST_GENERIC_TYPE,
 				SECOND_GENERIC_TYPE
@@ -335,6 +363,7 @@ describe("@flect/core", () => {
 			expect(Pairing.params.length).toBe(2);
 			expect(Pairing.params[0]).toBe(FIRST_GENERIC_TYPE);
 			expect(Pairing.returns).toBeInstanceOf(TupleType);
+			expect(Pairing.firstConstraint).toBe(Pairing.secondConstraint);
 			const pair: Pairing = <T, U>(t: T, u: U) => [t, u] as const;
 			expect(pair).toBeTruthy();
 			// @ts-expect-error
@@ -370,16 +399,22 @@ describe("@flect/core", () => {
 		});
 		test("Generic functione equality", () => {
 			const g2 = doubleGenericFunctionType(
+				unknownType,
+				unknownType,
 				FIRST_GENERIC_TYPE,
 				FIRST_GENERIC_TYPE,
 				SECOND_GENERIC_TYPE
 			);
 			const g3 = tripleGenericFunctionType(
+				unknownType,
+				unknownType,
 				FIRST_GENERIC_TYPE,
 				FIRST_GENERIC_TYPE,
 				SECOND_GENERIC_TYPE
 			);
 			const g2b = doubleGenericFunctionType(
+				unknownType,
+				unknownType,
 				FIRST_GENERIC_TYPE,
 				FIRST_GENERIC_TYPE,
 				SECOND_GENERIC_TYPE
