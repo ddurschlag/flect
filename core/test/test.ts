@@ -309,7 +309,20 @@ describe("@flect/core", () => {
 			type MyFactory = Reify<typeof MyFactory>;
 			const q1: MyFactory = () => ({}) as any;
 			const q2 = q1(3);
-			const q3: number = q2;
+			const q3: number & MyBrand = q2;
+		});
+		test("Generic brand union", () => {
+			const symbol = Symbol("observe");
+			const MyBrand = brand(symbol);
+			type MyBrand = Reify<typeof MyBrand>;
+			const MyFactory = singleGenericFunctionType(
+				union(FIRST_GENERIC_TYPE, MyBrand),
+				FIRST_GENERIC_TYPE
+			);
+			type MyFactory = Reify<typeof MyFactory>;
+			const q1: MyFactory = () => ({}) as any;
+			const q2 = q1(3);
+			const q3: number | MyBrand = q2;
 		});
 
 		test("Double generic function", () => {
