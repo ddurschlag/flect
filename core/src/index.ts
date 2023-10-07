@@ -613,7 +613,13 @@ function surround<
 	throw new Error("Cannot surround symbol with prefix/suffix");
 }
 
-type Swap<T, From, To> = T extends unknown[]
+// Seems to handle intersection types now, but definitely one of the most
+// complex/fragile bits of the codebase
+type Swap<T, From, To> = T extends IsConjunctionMatcher<T, From>
+	? SwapConjunction<T, From, To>
+	: T extends From
+	? To
+	: T extends unknown[]
 	? SwapArray<T, From, To>
 	: T extends readonly [...unknown[]]
 	? SwapTuple<T, From, To>
@@ -623,16 +629,23 @@ type Swap<T, From, To> = T extends unknown[]
 	? SwapMap<T, From, To>
 	: T extends Set<any>
 	? SwapSet<T, From, To>
+	: T extends {
+			readonly [brandProp]: infer B;
+	  }
+	? T // Brand prop
 	: T extends object
 	? SwapObject<T, From, To>
-	: SwapValue<T, From, To>;
+	: T;
 type SwapValue<Value, From, To> = Value extends From ? To : Value;
 type SwapTuple<
 	Tuple extends readonly [...unknown[]],
 	From,
-	To
-> = Tuple extends readonly [infer Head, ...infer Rest]
-	? readonly [Swap<Head, From, To>, ...SwapTuple<Rest, From, To>]
+	To,
+	Output extends readonly [...unknown[]] = readonly []
+> = Tuple extends readonly []
+	? Output
+	: Tuple extends readonly [infer Head, ...infer Rest]
+	? SwapTuple<Rest, From, To, readonly [...Output, Swap<Head, From, To>]>
 	: readonly [];
 type SwapArray<ArrayType extends unknown[], From, To> = ArrayType extends Array<
 	infer T
@@ -657,6 +670,16 @@ type SwapFunction<
 	To
 > = Func extends (...args: infer Params) => infer ReturnType
 	? (...args: SwapTuple<Params, From, To>) => Swap<ReturnType, From, To>
+	: never;
+type IsConjunctionMatcher<Whole, Part> = Whole extends Part & infer T
+	? T extends never
+		? never
+		: unknown extends T
+		? never
+		: Whole
+	: never;
+type SwapConjunction<Conj, From, To> = Conj extends From & infer T
+	? To & Swap<T, From, To>
 	: never;
 
 function swap<T, From, To>(
@@ -781,7 +804,7 @@ function swapTuple<T extends readonly [...unknown[]], From, To>(
 	type: TupleType<T>,
 	from: Type<From>,
 	to: Type<To>
-): TupleType<Swap<T, From, To>> {
+): TupleType<SwapTuple<T, From, To>> {
 	const subTypes = [];
 	let different = false;
 	for (const subType of type.subsets) {
