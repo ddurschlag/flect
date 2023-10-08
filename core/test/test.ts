@@ -12,11 +12,11 @@ import {
 	classType,
 	functionType,
 	FIRST_GENERIC_TYPE,
-	singleGenericFunctionType,
-	doubleGenericFunctionType,
+	constrainedSingleGenericFunctionType,
+	constrainedDoubleGenericFunctionType,
 	SECOND_GENERIC_TYPE,
 	THIRD_GENERIC_TYPE,
-	tripleGenericFunctionType,
+	constrainedTripleGenericFunctionType,
 	conditional,
 	neverType,
 	intersection,
@@ -39,7 +39,10 @@ import {
 	IntersectionType,
 	readonly,
 	MapType,
-	SetType
+	SetType,
+	tripleGenericFunctionType,
+	doubleGenericFunctionType,
+	singleGenericFunctionType
 } from "@flect/core";
 
 type InstanceOf<T> = T extends {prototype: infer R} ? R : never;
@@ -236,7 +239,6 @@ describe("@flect/core", () => {
 		});
 		test("Single generic function", () => {
 			const CountOfThingToThings = singleGenericFunctionType(
-				unknownType,
 				array(FIRST_GENERIC_TYPE),
 				numberType,
 				FIRST_GENERIC_TYPE
@@ -279,12 +281,9 @@ describe("@flect/core", () => {
 			};
 		});
 		test("Constrainted single generic", () => {
-			const HasLengthSignature = singleGenericFunctionType(
-				array(unknownType),
-				boolType,
-				FIRST_GENERIC_TYPE,
-				numberType
-			);
+			const HasLengthSignature = constrainedSingleGenericFunctionType(
+				array(unknownType)
+			)(boolType, FIRST_GENERIC_TYPE, numberType);
 			type HasLengthSignature = Reify<typeof HasLengthSignature>;
 			const hasLength: HasLengthSignature = <T extends unknown[]>(
 				t: T,
@@ -300,8 +299,7 @@ describe("@flect/core", () => {
 			) => true;
 		});
 		test("Generic union", () => {
-			const OrNumber = singleGenericFunctionType(
-				unknownType,
+			const OrNumber = constrainedSingleGenericFunctionType()(
 				union(FIRST_GENERIC_TYPE, numberType)
 			);
 			type OrNumber = Reify<typeof OrNumber>;
@@ -311,8 +309,7 @@ describe("@flect/core", () => {
 			const reallyAlwaysString: OrNumber = () => "3";
 		});
 		test("Generic intersection", () => {
-			const FancyId = singleGenericFunctionType(
-				unknownType,
+			const FancyId = constrainedSingleGenericFunctionType()(
 				intersection(FIRST_GENERIC_TYPE, unknownType),
 				FIRST_GENERIC_TYPE
 			);
@@ -326,8 +323,7 @@ describe("@flect/core", () => {
 			const symbol = Symbol("observe");
 			const MyBrand = brand(symbol);
 			type MyBrand = Reify<typeof MyBrand>;
-			const MyFactory = singleGenericFunctionType(
-				unknownType,
+			const MyFactory = constrainedSingleGenericFunctionType()(
 				intersection(FIRST_GENERIC_TYPE, MyBrand),
 				FIRST_GENERIC_TYPE
 			);
@@ -340,8 +336,7 @@ describe("@flect/core", () => {
 			const symbol = Symbol("observe");
 			const MyBrand = brand(symbol);
 			type MyBrand = Reify<typeof MyBrand>;
-			const MyFactory = singleGenericFunctionType(
-				unknownType,
+			const MyFactory = constrainedSingleGenericFunctionType()(
 				union(FIRST_GENERIC_TYPE, MyBrand),
 				FIRST_GENERIC_TYPE
 			);
@@ -352,9 +347,7 @@ describe("@flect/core", () => {
 		});
 
 		test("Double generic function", () => {
-			const Pairing = doubleGenericFunctionType(
-				unknownType,
-				unknownType,
+			const Pairing = constrainedDoubleGenericFunctionType()(
 				tuple(FIRST_GENERIC_TYPE, SECOND_GENERIC_TYPE),
 				FIRST_GENERIC_TYPE,
 				SECOND_GENERIC_TYPE
@@ -371,7 +364,7 @@ describe("@flect/core", () => {
 				[t, u, x] as const;
 		});
 		test("Triple generic function", () => {
-			const LabelThreeThings = tripleGenericFunctionType(
+			const LabelThreeThings = constrainedTripleGenericFunctionType()(
 				record({
 					first: FIRST_GENERIC_TYPE,
 					second: SECOND_GENERIC_TYPE,
@@ -384,6 +377,9 @@ describe("@flect/core", () => {
 			type LabelThreeThings = Reify<typeof LabelThreeThings>;
 			expect(LabelThreeThings.params.length).toBe(3);
 			expect(LabelThreeThings.returns).toBeInstanceOf(RecordType);
+			expect(LabelThreeThings.firstConstraint).toBe(unknownType);
+			expect(LabelThreeThings.secondConstraint).toBe(unknownType);
+			expect(LabelThreeThings.thirdConstraint).toBe(unknownType);
 			const label: LabelThreeThings = <T, U, V>(
 				first: T,
 				second: U,
@@ -397,10 +393,31 @@ describe("@flect/core", () => {
 				third: 0
 			});
 		});
+		test("Generic constraint interactions", () => {
+			const ArrayOf = constrainedDoubleGenericFunctionType(
+				unknownType,
+				array(FIRST_GENERIC_TYPE)
+			)(SECOND_GENERIC_TYPE, FIRST_GENERIC_TYPE, numberType);
+			type ArrayOf = Reify<typeof ArrayOf>;
+			const arrayOf: ArrayOf = <T, U extends T[]>(t: T, m: number) => {
+				const result: U = [] as unknown as U;
+				for (let i = 0; i < m; i++) {
+					result.push(t);
+				}
+				return result;
+			};
+			expect(arrayOf("3", 3)).toEqual(["3", "3", "3"]);
+			// @ts-expect-error
+			const badArrayOf: ArrayOf = <T, U extends number[]>(t: T, m: number) => {
+				const result: U = [] as unknown as U;
+				for (let i = 0; i < m; i++) {
+					result.push(3);
+				}
+				return result;
+			};
+		});
 		test("Generic functione equality", () => {
 			const g2 = doubleGenericFunctionType(
-				unknownType,
-				unknownType,
 				FIRST_GENERIC_TYPE,
 				FIRST_GENERIC_TYPE,
 				SECOND_GENERIC_TYPE
@@ -412,9 +429,7 @@ describe("@flect/core", () => {
 				FIRST_GENERIC_TYPE,
 				SECOND_GENERIC_TYPE
 			);
-			const g2b = doubleGenericFunctionType(
-				unknownType,
-				unknownType,
+			const g2b = constrainedDoubleGenericFunctionType()(
 				FIRST_GENERIC_TYPE,
 				FIRST_GENERIC_TYPE,
 				SECOND_GENERIC_TYPE

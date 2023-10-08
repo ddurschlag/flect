@@ -327,7 +327,7 @@ export class DoubleGenericFunctionType<
 			secondConstraint,
 			returns,
 			...params
-		); // Excessive stack depth comparing types 'DoubleGenericFunctionType<?, Returns>' and 'DoubleGenericFunctionType<?, Returns>'.ts(2321)
+		);
 	}
 
 	private _params: ReflectTuple<Params>;
@@ -337,14 +337,45 @@ export class DoubleGenericFunctionType<
 }
 
 const tripleGenericfunctionCache = new MemoizationCache<
-	TripleGenericFunctionType<any, any>
+	TripleGenericFunctionType<any, any, any, any, any>
 >();
 const MakeTripleGenericFunction = Symbol("make-triple-generic-function");
 export class TripleGenericFunctionType<
 	Params extends readonly [...unknown[]],
-	Returns extends unknown
+	Returns extends unknown,
+	FirstConstraint extends unknown,
+	SecondConstraint extends unknown,
+	ThirdConstraint extends unknown
 > extends Type<
-	<GEN_TYPE_1, GEN_TYPE_2, GEN_TYPE_3>(
+	<
+		GEN_TYPE_1 extends TripleSwap<
+			FirstConstraint,
+			Generic_1,
+			GEN_TYPE_1,
+			Generic_2,
+			GEN_TYPE_2,
+			Generic_3,
+			GEN_TYPE_3
+		>,
+		GEN_TYPE_2 extends TripleSwap<
+			SecondConstraint,
+			Generic_1,
+			GEN_TYPE_1,
+			Generic_2,
+			GEN_TYPE_2,
+			Generic_3,
+			GEN_TYPE_3
+		>,
+		GEN_TYPE_3 extends TripleSwap<
+			ThirdConstraint,
+			Generic_1,
+			GEN_TYPE_1,
+			Generic_2,
+			GEN_TYPE_2,
+			Generic_3,
+			GEN_TYPE_3
+		>
+	>(
 		...args: TripleSwap<
 			EnforceTupling<Params>,
 			Generic_1,
@@ -364,10 +395,19 @@ export class TripleGenericFunctionType<
 		GEN_TYPE_3
 	>
 > {
-	protected constructor(params: ReflectTuple<Params>, returns: Type<Returns>) {
+	protected constructor(
+		params: ReflectTuple<Params>,
+		returns: Type<Returns>,
+		firstConstraint: Type<FirstConstraint>,
+		secondConstraint: Type<SecondConstraint>,
+		thirdConstraint: Type<ThirdConstraint>
+	) {
 		super();
 		this._params = params;
 		this._returns = returns;
+		this._firstConstraint = firstConstraint;
+		this._secondConstraint = secondConstraint;
+		this._thirdConstraint = thirdConstraint;
 	}
 
 	get params() {
@@ -378,22 +418,53 @@ export class TripleGenericFunctionType<
 		return this._returns;
 	}
 
+	get firstConstraint() {
+		return this._firstConstraint;
+	}
+
+	get secondConstraint() {
+		return this._secondConstraint;
+	}
+
+	get thirdConstraint() {
+		return this._thirdConstraint;
+	}
+
 	public static [MakeTripleGenericFunction]<
 		Params extends readonly [...unknown[]],
-		Returns extends unknown
+		Returns extends unknown,
+		FirstConstraint extends unknown,
+		SecondConstraint extends unknown,
+		ThirdConstraint extends unknown
 	>(
 		params: ReflectTuple<Params>,
-		returns: Type<Returns>
-	): TripleGenericFunctionType<Params, Returns> {
+		returns: Type<Returns>,
+		firstConstraint: Type<FirstConstraint>,
+		secondConstraint: Type<SecondConstraint>,
+		thirdConstraint: Type<ThirdConstraint>
+	): TripleGenericFunctionType<
+		Params,
+		Returns,
+		FirstConstraint,
+		SecondConstraint,
+		ThirdConstraint
+	> {
 		return tripleGenericfunctionCache.memoize(
-			(ret, ...args) => new TripleGenericFunctionType(args, ret) as any,
+			(constr1, constr2, constr3, ret, ...args) =>
+				new TripleGenericFunctionType(args, ret, constr1, constr2, constr3),
+			firstConstraint,
+			secondConstraint,
+			thirdConstraint,
 			returns,
 			...params
-		) as any; // Excessive stack depth comparing types 'TripleGenericFunctionType<?, Returns>' and 'TripleGenericFunctionType<?, Returns>'.ts(2321)
+		);
 	}
 
 	private _params: ReflectTuple<Params>;
 	private _returns: Type<Returns>;
+	private _firstConstraint: Type<FirstConstraint>;
+	private _secondConstraint: Type<SecondConstraint>;
+	private _thirdConstraint: Type<ThirdConstraint>;
 }
 
 const brandCache = new MemoizationCache<BrandType<any>>();
@@ -1058,50 +1129,182 @@ type TripleSwap<T, From_1, To_1, From_2, To_2, From_3, To_3> = Swap<
 	To_3
 >;
 
-export function singleGenericFunctionType<
-	Returns extends unknown,
-	Params extends readonly [...unknown[]],
-	FirstConstraint extends unknown
+type SingleGenericFunctionTypeSignature = (<
+	FirstConstraint extends unknown = unknown
 >(
-	firstConstraint: Type<FirstConstraint>,
+	firstConstraint: Type<FirstConstraint>
+) => <Returns extends unknown, Params extends readonly [...unknown[]]>(
 	returnType: Type<Returns>,
 	...paramTypes: ReflectTuple<Params>
-) {
-	return SingleGenericFunctionType[MakeSingleGenericFunction](
-		paramTypes,
-		returnType,
-		firstConstraint
-	);
-}
+) => SingleGenericFunctionType<Params, Returns, FirstConstraint>) &
+	(() => <Returns extends unknown, Params extends readonly [...unknown[]]>(
+		returnType: Type<Returns>,
+		...paramTypes: ReflectTuple<Params>
+	) => SingleGenericFunctionType<Params, Returns, unknown>);
 
-export function doubleGenericFunctionType<
-	Returns extends unknown,
-	Params extends readonly [...unknown[]],
-	FirstConstraint extends unknown,
-	SecondConstraint extends unknown
+export const constrainedSingleGenericFunctionType: SingleGenericFunctionTypeSignature =
+
+		<FirstConstraint extends unknown = unknown>(
+			firstConstraint?: Type<FirstConstraint>
+		) =>
+		<Returns extends unknown, Params extends readonly [...unknown[]]>(
+			returnType: Type<Returns>,
+			...paramTypes: ReflectTuple<Params>
+		) =>
+			// We use (unknownType as any) here. The idea is that
+			// if you call overload #1 you must provide firstContraint and
+			// it's irrelevant. If you call overload #2 there is no generic
+			// type and we're returning an unknown constrained function
+			// anyway. Therefore, this is safe, even if TS doesn't realize that.
+			SingleGenericFunctionType[MakeSingleGenericFunction]<
+				Params,
+				Returns,
+				FirstConstraint
+			>(paramTypes, returnType, firstConstraint || (unknownType as any));
+export const singleGenericFunctionType = constrainedSingleGenericFunctionType();
+
+type DoubleGenericFunctionTypeSignature = (<
+	FirstConstraint extends unknown = unknown,
+	SecondConstraint extends unknown = unknown
+>(
+	firstConstraint: Type<FirstConstraint>,
+	secondConstraint: Type<SecondConstraint>
+) => <Returns extends unknown, Params extends readonly [...unknown[]]>(
+	returnType: Type<Returns>,
+	...paramTypes: ReflectTuple<Params>
+) => DoubleGenericFunctionType<
+	Params,
+	Returns,
+	FirstConstraint,
+	SecondConstraint
+>) &
+	(<FirstConstraint extends unknown = unknown>(
+		firstConstraint: Type<FirstConstraint>
+	) => <Returns extends unknown, Params extends readonly [...unknown[]]>(
+		returnType: Type<Returns>,
+		...paramTypes: ReflectTuple<Params>
+	) => DoubleGenericFunctionType<Params, Returns, FirstConstraint, unknown>) &
+	(() => <Returns extends unknown, Params extends readonly [...unknown[]]>(
+		returnType: Type<Returns>,
+		...paramTypes: ReflectTuple<Params>
+	) => DoubleGenericFunctionType<Params, Returns, unknown, unknown>);
+
+export const constrainedDoubleGenericFunctionType: DoubleGenericFunctionTypeSignature =
+
+		<
+			FirstConstraint extends unknown = unknown,
+			SecondConstraint extends unknown = unknown
+		>(
+			firstConstraint?: Type<FirstConstraint>,
+			secondConstraint?: Type<SecondConstraint>
+		) =>
+		<Returns extends unknown, Params extends readonly [...unknown[]]>(
+			returnType: Type<Returns>,
+			...paramTypes: ReflectTuple<Params>
+		) =>
+			// We use (unknownType as any) here. The idea is that
+			// if you call overload #1 you must provide firstContraint and
+			// it's irrelevant. If you call overload #2 there is no generic
+			// type and we're returning an unknown constrained function
+			// anyway. Therefore, this is safe, even if TS doesn't realize that.
+			DoubleGenericFunctionType[MakeDoubleGenericFunction]<
+				Params,
+				Returns,
+				FirstConstraint,
+				SecondConstraint
+			>(
+				paramTypes,
+				returnType,
+				firstConstraint || (unknownType as any),
+				secondConstraint || (unknownType as any)
+			);
+export const doubleGenericFunctionType = constrainedDoubleGenericFunctionType();
+
+type TripleGenericFunctionTypeSignature = (<
+	FirstConstraint extends unknown = unknown,
+	SecondConstraint extends unknown = unknown,
+	ThirdConstraint extends unknown = unknown
 >(
 	firstConstraint: Type<FirstConstraint>,
 	secondConstraint: Type<SecondConstraint>,
+	ThirdConstraint: Type<ThirdConstraint>
+) => <Returns extends unknown, Params extends readonly [...unknown[]]>(
 	returnType: Type<Returns>,
 	...paramTypes: ReflectTuple<Params>
-) {
-	return DoubleGenericFunctionType[MakeDoubleGenericFunction](
-		paramTypes,
-		returnType,
-		firstConstraint,
-		secondConstraint
-	);
-}
+) => TripleGenericFunctionType<
+	Params,
+	Returns,
+	FirstConstraint,
+	SecondConstraint,
+	ThirdConstraint
+>) &
+	(<
+		FirstConstraint extends unknown = unknown,
+		SecondConstraint extends unknown = unknown
+	>(
+		firstConstraint: Type<FirstConstraint>,
+		secondConstraint: Type<SecondConstraint>
+	) => <Returns extends unknown, Params extends readonly [...unknown[]]>(
+		returnType: Type<Returns>,
+		...paramTypes: ReflectTuple<Params>
+	) => TripleGenericFunctionType<
+		Params,
+		Returns,
+		FirstConstraint,
+		SecondConstraint,
+		unknown
+	>) &
+	(<FirstConstraint extends unknown = unknown>(
+		firstConstraint: Type<FirstConstraint>
+	) => <Returns extends unknown, Params extends readonly [...unknown[]]>(
+		returnType: Type<Returns>,
+		...paramTypes: ReflectTuple<Params>
+	) => TripleGenericFunctionType<
+		Params,
+		Returns,
+		FirstConstraint,
+		unknown,
+		unknown
+	>) &
+	(() => <Returns extends unknown, Params extends readonly [...unknown[]]>(
+		returnType: Type<Returns>,
+		...paramTypes: ReflectTuple<Params>
+	) => TripleGenericFunctionType<Params, Returns, unknown, unknown, unknown>);
 
-export function tripleGenericFunctionType<
-	Returns extends unknown,
-	Params extends readonly [...unknown[]]
->(returnType: Type<Returns>, ...paramTypes: ReflectTuple<Params>) {
-	return TripleGenericFunctionType[MakeTripleGenericFunction](
-		paramTypes,
-		returnType
-	);
-}
+export const constrainedTripleGenericFunctionType: TripleGenericFunctionTypeSignature =
+
+		<
+			FirstConstraint extends unknown = unknown,
+			SecondConstraint extends unknown = unknown,
+			ThirdConstraint extends unknown = unknown
+		>(
+			firstConstraint?: Type<FirstConstraint>,
+			secondConstraint?: Type<SecondConstraint>,
+			thirdConstraint?: Type<ThirdConstraint>
+		) =>
+		<Returns extends unknown, Params extends readonly [...unknown[]]>(
+			returnType: Type<Returns>,
+			...paramTypes: ReflectTuple<Params>
+		) =>
+			// We use (unknownType as any) here. The idea is that
+			// if you call overload #1 you must provide firstContraint and
+			// it's irrelevant. If you call overload #2 there is no generic
+			// type and we're returning an unknown constrained function
+			// anyway. Therefore, this is safe, even if TS doesn't realize that.
+			TripleGenericFunctionType[MakeTripleGenericFunction]<
+				Params,
+				Returns,
+				FirstConstraint,
+				SecondConstraint,
+				ThirdConstraint
+			>(
+				paramTypes,
+				returnType,
+				firstConstraint || (unknownType as any),
+				secondConstraint || (unknownType as any),
+				thirdConstraint || (unknownType as any)
+			);
+export const tripleGenericFunctionType = constrainedTripleGenericFunctionType();
 
 export function conditional<Extension, Base, Yes, No>(
 	extension: Type<Extension>,
