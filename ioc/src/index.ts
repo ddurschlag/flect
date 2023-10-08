@@ -52,6 +52,8 @@ type Provider = {
 	impl: Factory<any, any>;
 	// Optional key if multiple implementations are desired
 	key: symbol | null;
+	// Should we cache the first resolution of this injectable?
+	cached: boolean;
 };
 
 // A type that implements an interface. Once bound will be wrapped in an appropriate factory
@@ -126,12 +128,14 @@ class Binder<
 		storage: ProviderStorage,
 		bound: Type<TInterface>,
 		dependencies: Dependencies<TDepTypes>,
-		key: KeyType
+		key: KeyType,
+		cached: boolean
 	) {
 		this._storage = storage;
 		this._bound = bound;
 		this._dependencies = dependencies;
 		this._key = key;
+		this._cached = cached;
 	}
 
 	public with<TMoreDeps extends readonly [...unknown[]]>(
@@ -142,7 +146,8 @@ class Binder<
 			this._storage,
 			this._bound,
 			[...this._dependencies, ...buildDependencies(moreDeps)] as const,
-			this._key
+			this._key,
+			this._cached
 		);
 	}
 
@@ -150,24 +155,20 @@ class Binder<
 		this._storage.store(this._bound, {
 			dependencies: this._dependencies,
 			impl,
-			key: this._key
+			key: this._key,
+			cached: this._cached
 		});
 	}
 
 	public toType(Implementor: Implementor<TInterface, TDepTypes>) {
-		const impl: (...args: TDepTypes) => TInterface = (...args) =>
-			new Implementor(...args);
-		this._storage.store(this._bound, {
-			dependencies: this._dependencies,
-			impl,
-			key: this._key
-		});
+		return this.toFactory((...args) => new Implementor(...args));
 	}
 
 	private _storage: ProviderStorage;
 	private _bound: Type<TInterface>;
 	private _dependencies: Dependencies<TDepTypes>;
 	private _key: KeyType;
+	private _cached: boolean;
 }
 
 // Fluent builder for implementation provision
@@ -176,8 +177,13 @@ class RootBinder<TInterface extends unknown> extends Binder<
 	TInterface,
 	readonly []
 > {
-	constructor(storage: ProviderStorage, bound: Type<TInterface>, key: KeyType) {
-		super(storage, bound, [] as const, key);
+	constructor(
+		storage: ProviderStorage,
+		bound: Type<TInterface>,
+		key: KeyType,
+		cached: boolean
+	) {
+		super(storage, bound, [] as const, key, cached);
 	}
 
 	public toInstance(instance: TInterface) {
@@ -196,15 +202,26 @@ class RootBinder<TInterface extends unknown> extends Binder<
 export class Container {
 	constructor() {
 		this._storage = new ProviderStorage();
+		this._cache = new Map();
 	}
 
-	// Bind to a type, with optional key. Use keys
-	// if you have multiple implementations of a type
+	// Bind an interface, with optional key. Use keys
+	// if you have multiple implementations of an interface.
 	public bind<TInterface extends unknown>(
 		bound: Type<TInterface>,
 		key: KeyType = null
 	) {
-		return new RootBinder(this._storage, bound, key);
+		return new RootBinder(this._storage, bound, key, false);
+	}
+
+	// Bind an interface, with optional key. Use keys
+	// if you have multiple implementations of an interface.
+	// Cache the first resolution of the interface.
+	public bindCached<TInterface extends unknown>(
+		bound: Type<TInterface>,
+		key: KeyType = null
+	) {
+		return new RootBinder(this._storage, bound, key, true);
 	}
 
 	// Resolve a type with optional key. Will resolve
@@ -214,7 +231,27 @@ export class Container {
 		boundInterface: Type<TInterface>,
 		key: KeyType = null
 	): TInterface {
-		const {dependencies, impl} = this._storage.retrieve(boundInterface, key);
+		const {dependencies, impl, cached} = this._storage.retrieve(
+			boundInterface,
+			key
+		);
+		if (cached) {
+			let keyMap = this._cache.get(boundInterface);
+			if (keyMap === undefined) {
+				keyMap = new Map();
+				this._cache.set(boundInterface, keyMap);
+			}
+			let result = keyMap.get(key) as TInterface | undefined;
+			if (result === undefined) {
+				result = Reflect.apply<null, Injectable[], TInterface>(
+					impl,
+					null,
+					dependencies.map((d) => this.resolveDependency(d)) as any
+				);
+				keyMap.set(key, result);
+			}
+			return result;
+		}
 		return Reflect.apply<null, Injectable[], TInterface>(
 			impl,
 			null,
@@ -239,6 +276,10 @@ export class Container {
 	}
 
 	private _storage: ProviderStorage;
+	private _cache: Map<
+		Injectable, // What we're going to get
+		Map<KeyType, unknown>
+	>;
 }
 
 // Function to get a full dependency instead
