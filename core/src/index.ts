@@ -691,6 +691,7 @@ export const voidType = Type[MakeType]<void>();
 export const nullType = Type[MakeType]<null>();
 export const neverType = Type[MakeType]<never>();
 export const unknownType = Type[MakeType]<unknown>();
+export const objectType = Type[MakeType]<object>();
 export const anyType = Type[MakeType]<any>();
 
 export function brand<T extends symbol>(t: T) {
@@ -1077,6 +1078,7 @@ export function tuple<Reflected extends readonly [...unknown[]]>(
 	return TupleType[MakeTuple]<Reflected>(type);
 }
 
+// TODO needs class!
 export function classType<
 	Reflected extends Function & {new (...args: readonly any[]): unknown}
 >(type: Reflected) {

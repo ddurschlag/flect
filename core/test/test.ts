@@ -42,7 +42,8 @@ import {
 	SetType,
 	tripleGenericFunctionType,
 	doubleGenericFunctionType,
-	singleGenericFunctionType
+	singleGenericFunctionType,
+	objectType
 } from "@flect/core";
 
 type InstanceOf<T> = T extends {prototype: infer R} ? R : never;
@@ -226,6 +227,14 @@ describe("@flect/core", () => {
 			expect(mc).toBeTruthy();
 			// @ts-expect-error
 			const notmc: MyClassType = {};
+		});
+		test("object type", () => {
+			const TwoNonPrims = tuple(objectType, objectType);
+			type TwoNonPrims = Reify<typeof TwoNonPrims>;
+			const tnp1: TwoNonPrims = [{}, new Map()] as const;
+			const tnp2: TwoNonPrims = [[], new Set()] as const;
+			// @ts-expect-error
+			const sneakPrim: TwoNonPrims = [{}, 3];
 		});
 		test("Function type", () => {
 			const StoI = functionType(numberType, stringType);
