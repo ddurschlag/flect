@@ -216,6 +216,20 @@ describe("@flect/ioc", () => {
 		c.bind(Animal).toType(Cat);
 		expect(c.resolve(Animal)).not.toBe(c.resolve(Animal));
 	});
+	test("Cached implementations", () => {
+		const c = new Container();
+		c.bindCached(Animal).toType(Cat);
+		expect(c.resolve(Animal)).toBe(c.resolve(Animal));
+	});
+	test("Cached deps", () => {
+		const c = new Container();
+		c.bindCached(Person)
+			.with(Animal)
+			.toFactory((a: Animal) => ({pet: a}));
+		c.bindCached(Animal).toFactory(() => new Cat());
+		expect(c.resolve(Animal)).toBe(c.resolve(Animal));
+		expect(c.resolve(Person)).toBe(c.resolve(Person));
+	});
 	test("Separately specified types", () => {
 		const c = new Container();
 		c.bind(array(stringType)).toInstance(["foo", "bar"]);
