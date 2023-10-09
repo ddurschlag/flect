@@ -138,6 +138,20 @@ describe("@flect/ioc", () => {
 		// @ts-expect-error
 		c.bind(record({A: numberType})).toFlectType(WrongWrong);
 	});
+	test("Full deps in flect-types", () => {
+		class DogWalker {
+			public static [FLECT_CONSTRUCTOR_PARAMS]() {
+				return [dep(Animal, dogKey, true)] as const;
+			}
+			public constructor(public pet: Animal) {}
+		}
+		const c = new Container();
+		c.bind(Animal).toType(Cat);
+		c.bind(Person).toFlectType(DogWalker);
+		expect(() => c.resolve(Person)).toThrow();
+		c.bind(Animal, dogKey).toInstance(myDog);
+		expect(c.resolve(Person).pet).toBe(myDog);
+	});
 	test("Explicit dep", () => {
 		const c = new Container();
 		c.bind(Person)

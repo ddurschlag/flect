@@ -65,15 +65,15 @@ type Implementor<
 export const FLECT_CONSTRUCTOR_PARAMS = Symbol("flect-constructor-params");
 
 // Stolen from core. Some better way to re-use without exposing?
-type ReflectTuple<Reflected extends readonly [...unknown[]]> = {
-	readonly [K in keyof Reflected]: Type<Reflected[K]>;
-};
+type EnforceTupling<Tuple extends readonly [...unknown[]]> = readonly [
+	...Tuple
+];
 
 type FlectImplementor<
 	TInterface extends unknown,
 	TDeps extends readonly [...unknown[]]
 > = Implementor<TInterface, TDeps> & {
-	[FLECT_CONSTRUCTOR_PARAMS]: () => ReflectTuple<TDeps>;
+	[FLECT_CONSTRUCTOR_PARAMS]: () => EnforceTupling<RawDependencies<TDeps>>;
 };
 
 export class DependencyResolutionError extends Error {
