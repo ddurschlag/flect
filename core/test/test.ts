@@ -81,6 +81,7 @@ const Animal = record({
 	sound: stringType
 });
 type Animal = Reify<typeof Animal>;
+
 const dog: Animal = {legCount: 4, sound: "woof"};
 
 const BinarySequence = array(union(literal(true), literal(false)));
@@ -354,7 +355,45 @@ describe("@flect/core", () => {
 			const q2 = q1(3);
 			const q3: number | MyBrand = q2;
 		});
-
+		test("Generic first-class function", () => {
+			const UpdateType = singleGenericFunctionType(
+				array(FIRST_GENERIC_TYPE),
+				functionType(FIRST_GENERIC_TYPE, FIRST_GENERIC_TYPE),
+				array(FIRST_GENERIC_TYPE)
+			);
+			type UpdateType = Reify<typeof UpdateType>;
+			const update: UpdateType = (f, a) => a.map(f);
+			expect(update((x) => x + 3, [1, 2, 3])).toEqual([4, 5, 6]);
+		});
+		test("Not-so-generic first-class function", () => {
+			const UpdateType = singleGenericFunctionType(
+				array(stringType),
+				functionType(stringType, numberType),
+				array(numberType)
+			);
+			type UpdateType = Reify<typeof UpdateType>;
+			const update: UpdateType = (f, a) => a.map(f);
+			expect(update((x) => x.toString(), [1, 2, 3])).toEqual(["1", "2", "3"]);
+		});
+		test("Generic param only", () => {
+			const ChuckIt = singleGenericFunctionType(
+				voidType,
+				functionType(voidType, FIRST_GENERIC_TYPE),
+				FIRST_GENERIC_TYPE
+			);
+			type ChuckIt = Reify<typeof ChuckIt>;
+			const chuckIt: ChuckIt = (f, t) => f(t);
+			expect(chuckIt(() => {}, 3)).toBeUndefined();
+		});
+		test("Generic return only", () => {
+			const MakeIt = singleGenericFunctionType(
+				voidType,
+				functionType(FIRST_GENERIC_TYPE, nullType)
+			);
+			type MakeIt = Reify<typeof MakeIt>;
+			const makeIt: MakeIt = (f) => f(null);
+			expect(makeIt(() => 3)).toBe(3);
+		});
 		test("Double generic function", () => {
 			const Pairing = constrainedDoubleGenericFunctionType()(
 				tuple(FIRST_GENERIC_TYPE, SECOND_GENERIC_TYPE),
@@ -640,6 +679,20 @@ describe("@flect/core", () => {
 					expect(f.params.length).toBe(2);
 					expect(f.params[0]).toBe(voidType);
 					expect(f.returns).toBe(numberType);
+				});
+				test("Only return swaps", () => {
+					const recF = record({
+						f: functionType(stringType, numberType, voidType)
+					});
+					const mapRecF = mappedRecord(
+						recF,
+						functionType(SourceType),
+						"",
+						"ButNew"
+					);
+					const f = assertKeyIsType(mapRecF, "fButNew", FunctionType);
+					expect(f.params.length).toBe(0);
+					expect(f.returns).toBeInstanceOf(FunctionType);
 				});
 			});
 			test("Constant array type", () => {

@@ -31,5 +31,13 @@ export class Type<Reflected = unknown> extends ReifiableIdentified {
 		return new Type<T>();
 	}
 
+	// Would be great to do this some day, but TS' alias preservation
+	// specifically doesn't work on aliases reified by flect :(
+	// public composeAs<T extends Reflected>(): Reflected extends T
+	// 	? Type<T>
+	// 	: never {
+	// 	return this as unknown as any;
+	// }
+
 	protected readonly _refl!: Reflected;
 }

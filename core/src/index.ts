@@ -877,48 +877,50 @@ function swap<T, From, To>(
 	return ((type as any) === from ? to : type) as any; // TS just can't follow this :(
 }
 
+function swapSubsets<T extends readonly [...unknown[]], From, To>(
+	subsets: ReflectTuple<T>,
+	from: Type<From>,
+	to: Type<To>
+): ReflectTuple<SwapTuple<T, From, To>> | undefined {
+	const subTypes = [] as ReflectTuple<SwapTuple<T, From, To>>;
+	let different = false;
+	for (let i = 0; i < subsets.length; i++) {
+		let subType = subsets[i];
+		const newSub = swap(subType, from, to);
+		if (newSub !== subType) {
+			subType = newSub as any;
+			different = true;
+		}
+		subTypes[i] = subType as any;
+	}
+	if (different) {
+		return subTypes;
+	}
+	return undefined; // Not different
+}
+
 function swapUnion<T extends readonly [...unknown[]], From, To>(
 	type: UnionType<T>,
 	from: Type<From>,
 	to: Type<To>
-): SwapValue<T, From, To> {
-	const subTypes = [];
-	let different = false;
-	for (const subType of type.subsets) {
-		const newSub = swap(subType, from, to);
-		if (newSub === subType) {
-			subTypes.push(subType);
-		} else {
-			subTypes.push(newSub);
-			different = true;
-		}
+): UnionType<SwapTuple<T, From, To>> {
+	const subTypes = swapSubsets(type.subsets, from, to);
+	if (subTypes === undefined) {
+		return type as any;
 	}
-	if (different) {
-		return UnionType[MakeUnion](subTypes) as any; // TS just can't follow this :(
-	}
-	return type as any; // TS just can't follow this :(
+	return UnionType[MakeUnion](subTypes);
 }
 
 function swapIntersection<T extends readonly [...unknown[]], From, To>(
 	type: IntersectionType<T>,
 	from: Type<From>,
 	to: Type<To>
-): SwapValue<T, From, To> {
-	const subTypes = [];
-	let different = false;
-	for (const subType of type.subsets) {
-		const newSub = swap(subType, from, to);
-		if (newSub === subType) {
-			subTypes.push(subType);
-		} else {
-			subTypes.push(newSub);
-			different = true;
-		}
+): IntersectionType<SwapTuple<T, From, To>> {
+	const subTypes = swapSubsets(type.subsets, from, to);
+	if (subTypes === undefined) {
+		return type as any;
 	}
-	if (different) {
-		return IntersectionType[MakeIntersection](subTypes) as any; // TS just can't follow this :(
-	}
-	return type as any; // TS just can't follow this :(
+	return IntersectionType[MakeIntersection](subTypes);
 }
 
 function swapArray<T, From, To>(
@@ -938,21 +940,11 @@ function swapTuple<T extends readonly [...unknown[]], From, To>(
 	from: Type<From>,
 	to: Type<To>
 ): TupleType<SwapTuple<T, From, To>> {
-	const subTypes = [];
-	let different = false;
-	for (const subType of type.subsets) {
-		const newSub = swap(subType, from, to);
-		if (newSub === subType) {
-			subTypes.push(subType);
-		} else {
-			subTypes.push(newSub);
-			different = true;
-		}
+	const subTypes = swapSubsets(type.subsets, from, to);
+	if (subTypes === undefined) {
+		return type as any;
 	}
-	if (different) {
-		return TupleType[MakeTuple](subTypes) as any; // TS just can't follow this :(
-	}
-	return type as any; // TS just can't follow this :(
+	return TupleType[MakeTuple](subTypes);
 }
 
 function swapFunction<
@@ -965,24 +957,14 @@ function swapFunction<
 	from: Type<From>,
 	to: Type<To>
 ): FunctionType<SwapTuple<Params, From, To>, Swap<Returns, From, To>> {
-	const paramTypes = [];
-	let different = false;
-	for (const subType of type.params) {
-		const newSub = swap(subType, from, to);
-		if (newSub === subType) {
-			paramTypes.push(subType);
-		} else {
-			paramTypes.push(newSub);
-			different = true;
-		}
-	}
+	const paramTypes = swapSubsets(type.params, from, to);
 	const newReturn = swap(type.returns, from, to);
 
-	if (newReturn !== type.returns) {
-		different = true;
-	}
-	if (different) {
-		return FunctionType[MakeFunction](paramTypes, newReturn) as any;
+	if (newReturn !== type.returns || paramTypes !== undefined) {
+		return FunctionType[MakeFunction](
+			(paramTypes ?? type.params) as any,
+			newReturn
+		);
 	}
 	return type as any;
 }
