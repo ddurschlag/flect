@@ -105,6 +105,23 @@ function sortProps(
 	return a.toString() < b.toString() ? -1 : 1; // Properties can't be the same, so either less or greater
 }
 
+const metaCache = new MemoizationCache<MetaType<any>>();
+const MakeMeta = Symbol("make-meta");
+export class MetaType<Reflected> extends Type<Type<Reflected>> {
+	protected constructor(type: Type<Reflected>) {
+		super();
+		this.type = type;
+	}
+
+	public static [MakeMeta]<Reflected>(
+		type: Type<Reflected>
+	): MetaType<Reflected> {
+		return metaCache.memoize((t) => new MetaType(t), type);
+	}
+
+	public type: Type<Reflected>;
+}
+
 const recordCache = new MemoizationCache<RecordType<any>>();
 const MakeRecord = Symbol("make-record");
 export class RecordType<
@@ -116,7 +133,6 @@ export class RecordType<
 			key,
 			Reflect.get(type, key)
 		]) as any;
-		const x = this.properties[0];
 	}
 
 	public static [MakeRecord]<
@@ -589,6 +605,31 @@ export class ArrayType<ReflectedItem> extends Type<ReflectedItem[]> {
 	public itemType: Type<ReflectedItem>;
 }
 
+const reifiedCache = new MemoizationCache<Reified<any>>();
+const MakeReified = Symbol("make-reified");
+// This conditional type extension requires a conditional factory...
+class Reified<T> extends Type<T extends Type<infer U> ? U : never> {
+	protected constructor(typeType: Type<T>) {
+		super();
+		this.typeType = typeType;
+	}
+
+	// ... so we need to branch here
+	public static [MakeReified]<T>(
+		typeType: Type<T>
+	): Type<T extends Type<infer U> ? U : never> {
+		if (typeType instanceof MetaType) {
+			return typeType.type;
+		}
+		// We have to cast here because of how the cache works -- conditional any types return the union
+		// of the output types (https://github.com/microsoft/TypeScript/issues/40049). This ends up
+		// being unknown when inference is used, and Reified<unknown> is not implicitly Reified<T>.
+		return reifiedCache.memoize((t) => new Reified(t), typeType) as Reified<T>;
+	}
+
+	public typeType: Type<T>;
+}
+
 const tupleCache = new MemoizationCache<TupleType<any>>();
 const MakeTuple = Symbol("make-tuple");
 export class TupleType<Reflected extends readonly [...unknown[]]> extends Type<
@@ -752,6 +793,8 @@ type Swap<T, From, To> = T extends IsConjunctionMatcher<T, From>
 	? SwapConjunction<T, From, To>
 	: T extends From
 	? To
+	: T extends Type<infer InnerT>
+	? Type<Swap<InnerT, From, To>>
 	: T extends unknown[]
 	? SwapArray<T, From, To>
 	: T extends readonly [...unknown[]]
@@ -1025,6 +1068,10 @@ export function mappedRecord<
 	return RecordType[MakeRecord](reflectedResult as any); // There's no diff-checking here, we always return a new type
 }
 
+export function reify<T>(t: Type<T>) {
+	return Reified[MakeReified](t);
+}
+
 // TODO: Needs class
 export function keyof<Reflected>(type: Type<Reflected>) {
 	return Type[MakeType]<keyof Reflected>();
@@ -1041,6 +1088,10 @@ export function index<Reflected, Key extends keyof Reflected>(
 
 export function array<ReflectedItem>(type: Type<ReflectedItem>) {
 	return ArrayType[MakeArray](type);
+}
+
+export function metaType<Reflected>(type: Type<Reflected>) {
+	return MetaType[MakeMeta](type);
 }
 
 export function mapType<ReflectedKey, ReflectedValue>(

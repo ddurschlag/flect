@@ -5,7 +5,8 @@
 		"default": {
 			"runner": "nx/tasks-runners/default",
 			"options": {
-				"cacheableOperations": ["build", "fix", "test", "test-types", "verify"]
+				"cacheableOperations": ["build", "fix", "test", "test-types", "verify"],
+				"parallel": 8
 			}
 		}
 	}
