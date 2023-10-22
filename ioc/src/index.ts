@@ -32,7 +32,7 @@ function buildDependency<T extends unknown>(
 function buildDependencies<T extends readonly [...unknown[]]>(
 	deps: RawDependencies<T>
 ): Dependencies<T> {
-	return deps.map(buildDependency) as any; // todo: wish this could be a less aggresssive cast, or none at all somehow
+	return deps.map(buildDependency) as any;  // Stuck with this cast until tuple-map is supported in TS
 }
 
 // The type of the factory function needed to register a provider
@@ -255,8 +255,8 @@ export class Container {
 		return Reflect.apply<null, Injectable[], TInterface>(
 			impl,
 			null,
-			dependencies.map((d) => this.resolveDependency(d)) as any
-		); // TODO -- tuple map
+			dependencies.map((d) => this.resolveDependency(d)) as any // Stuck with this cast until tuple-map is supported in TS
+		);
 	}
 
 	private resolveDependency<TInterface extends unknown>(
