@@ -1,5 +1,3 @@
-// TODO : need to be able to have value and map at each step for variable arg count!!
-
 class CacheLayer<T> {
 	constructor() {
 		this._map = new Map();

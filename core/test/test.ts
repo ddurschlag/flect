@@ -43,7 +43,9 @@ import {
 	tripleGenericFunctionType,
 	doubleGenericFunctionType,
 	singleGenericFunctionType,
-	objectType
+	objectType,
+	metaType,
+	reify
 } from "@flect/core";
 
 type InstanceOf<T> = T extends {prototype: infer R} ? R : never;
@@ -138,6 +140,26 @@ describe("@flect/core", () => {
 			const bad1: StringArray = [3];
 			// @ts-expect-error
 			const bad2: StringArray = [3, 4];
+		});
+		test("Meta type", () => {
+			const MetaNumber = metaType(numberType);
+			type MetaNumber = Reify<typeof MetaNumber>;
+			expect(MetaNumber.type).toBe(numberType);
+			const n: MetaNumber = numberType;
+			const N = reify(MetaNumber);
+			type N = Reify<typeof N>;
+			const k: N = 3;
+			expect(N).toBe(numberType);
+		});
+		test("Bad reify", () => {
+			const Wat = reify(numberType);
+			type Wat = Reify<typeof Wat>;
+			const f: () => never = () => {
+				const wat: Wat = 0 as never;
+				return wat;
+			};
+			// Just prove it typechecks, showing we get a never when reifying a non-meta type.
+			expect(f).toBeTruthy();
 		});
 		test("Map type", () => {
 			const S2sMap = mapType(stringType, stringType);
@@ -307,6 +329,19 @@ describe("@flect/core", () => {
 				t: T,
 				x: number
 			) => true;
+		});
+		test("Meta-typed single generic", () => {
+			const ConstructType = singleGenericFunctionType(
+				FIRST_GENERIC_TYPE,
+				metaType(FIRST_GENERIC_TYPE)
+			);
+			type ConstructType = Reify<typeof ConstructType>;
+			// Create a fake construction method.
+			// Construction might be a good future flect package.
+			const construct: ConstructType = () => 0 as any;
+			expect(construct(numberType)).toBe(0);
+			// @ts-expect-error
+			const insufficientlyFlexible: ConstructType = (t) => 0;
 		});
 		test("Generic union", () => {
 			const OrNumber = constrainedSingleGenericFunctionType()(
@@ -594,6 +629,13 @@ describe("@flect/core", () => {
 				const x = ArrayType;
 				const legs = assertKeyIsType(Herd, "allMyLegCount", ArrayType);
 				expect(legs.itemType).toBe(numberType);
+			});
+			test("Reified metatype", () => {
+				// TODO: With no way to either force all property types to extend
+				// Type or to check if they do during mapping, this can't work.
+				// If everything moved from depending on Type to depending
+				// on Reifiable we might be able to use conditional(), possibly
+				// in combination with some lazy form or reify(), to make it go.
 			});
 			test("Tuple type", () => {
 				const pair = record({tuple: tuple(numberType, numberType)});
