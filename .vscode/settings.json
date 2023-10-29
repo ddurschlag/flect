@@ -1,5 +1,5 @@
 {
 	"eslint.workingDirectories": [
-		"core", "guard", "ioc", "traverse"
+		"core", "guard", "ioc", "traverse", "transform"
 	]
 }

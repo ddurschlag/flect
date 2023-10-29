@@ -46,6 +46,19 @@
 		{
 			"type": "node",
 			"request": "launch",
+			"name": "Debug transform",
+			"skipFiles": ["<node_internals>/**"],
+			"program": "${workspaceRoot}/node_modules/.bin/jest",
+			"env": { "CI": "true" },
+			"args": ["--runInBand", "--no-cache"],
+			"windows": {
+				"program": "${workspaceFolder}/node_modules/jest/bin/jest"
+			},
+			"cwd": "${workspaceFolder}/transform"
+		},
+		{
+			"type": "node",
+			"request": "launch",
 			"name": "Debug traverse",
 			"skipFiles": ["<node_internals>/**"],
 			"program": "${workspaceRoot}/node_modules/.bin/jest",

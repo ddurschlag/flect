@@ -30,7 +30,8 @@
 		"core",
 		"guard",
 		"traverse",
-		"ioc"
+		"ioc",
+		"transform"
 	],
 	"type": "module"
 }

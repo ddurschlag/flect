@@ -16,7 +16,8 @@ Flect was inspired by libraries like [reason-guard](https://github.com/6RiverSys
 
 ## Packages
 
-[Core](core/readme.md)
-[Guard](guard/readme.md)
-[IoC](ioc/readme.md)
-[Traverse](traverse/readme.md)
+* [Core](core/readme.md)
+* [Guard](guard/readme.md)
+* [IoC](ioc/readme.md)
+* [Transform](transform/readme.md)
+* [Traverse](traverse/readme.md)

@@ -32,7 +32,7 @@ function buildDependency<T extends unknown>(
 function buildDependencies<T extends readonly [...unknown[]]>(
 	deps: RawDependencies<T>
 ): Dependencies<T> {
-	return deps.map(buildDependency) as any;  // Stuck with this cast until tuple-map is supported in TS
+	return deps.map(buildDependency) as any; // Stuck with this cast until tuple-map is supported in TS
 }
 
 // The type of the factory function needed to register a provider
