@@ -2,6 +2,7 @@ import {
 	numberType,
 	record,
 	stringType,
+	undefinedType,
 	Reify,
 	array,
 	literal,
@@ -32,7 +33,7 @@ import {
 	nullType,
 	TupleType,
 	RecordType,
-	Type,
+	guard,
 	FunctionType,
 	anyType,
 	boolType,
@@ -45,7 +46,8 @@ import {
 	singleGenericFunctionType,
 	objectType,
 	metaType,
-	reify
+	reify,
+	GuardType
 } from "@flect/core";
 
 type InstanceOf<T> = T extends {prototype: infer R} ? R : never;
@@ -116,6 +118,13 @@ describe("@flect/core", () => {
 				// @ts-expect-error
 				const animal2: B2Animal = animal1;
 			});
+		});
+		test("Undefined type", () => {
+			const Boring = record({undef: undefinedType});
+			type Boring = Reify<typeof Boring>;
+			const b: Boring = {undef: undefined};
+			// @ts-expect-error
+			const interesting: Boring = {undef: 3};
 		});
 		test("Literal type", () => {
 			const AlwaysBob = literal("bob");
@@ -637,6 +646,30 @@ describe("@flect/core", () => {
 				// on Reifiable we might be able to use conditional(), possibly
 				// in combination with some lazy form or reify(), to make it go.
 			});
+			test("Guard type", () => {
+				const HasNumber = record({thing: numberType});
+				const HasGuard = mappedRecord(
+					HasNumber,
+					guard(unknownType, SourceType),
+					"",
+					""
+				);
+				const AltHasGuard = mappedRecord(
+					HasNumber,
+					guard(unknownType, numberType),
+					"",
+					""
+				);
+				expect(HasGuard).toBe(AltHasGuard);
+				type HasGuard = Reify<typeof HasGuard>;
+				const guardHaver: HasGuard = {
+					thing: (n): n is number => typeof n === "number"
+				};
+				expect(guardHaver.thing(3)).toBe(true);
+				expect(guardHaver.thing("3")).toBe(false);
+				const g = assertKeyIsType(HasGuard, "thing", GuardType);
+				expect(g.to).toBe(numberType);
+			});
 			test("Tuple type", () => {
 				const pair = record({tuple: tuple(numberType, numberType)});
 				const pairOfPairs = mappedRecord(
@@ -874,5 +907,18 @@ describe("@flect/core", () => {
 			expect(a1).toBe(a2);
 			expect(a1).not.toBe(a3);
 		});
+	});
+	test("Guard types", () => {
+		const StringGuard = guard(unknownType, stringType);
+		type StringGuard = Reify<typeof StringGuard>;
+		const sg: StringGuard = (s): s is string => typeof s === "string";
+		expect(sg("foo")).toBe(true);
+		expect(sg(3)).toBe(false);
+		expect(StringGuard.from).toBe(unknownType);
+		expect(StringGuard.to).toBe(stringType);
+
+		// Can't infer from boolean -- gotta specify it's a guard!
+		// @ts-expect-error
+		const notGuard: StringGuard = (s) => typeof s === "string";
 	});
 });
