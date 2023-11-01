@@ -732,7 +732,23 @@ export class SetType<ReflectedItem> extends Type<Set<ReflectedItem>> {
 	public itemType: Type<ReflectedItem>;
 }
 
-export type DeepReadonly<T> = T extends (infer R)[]
+export type DeepReadonly<T> = T extends IsConjunctionMatcher<T, string>
+	? DeepReadonlyPrimitiveConjunction<T, string>
+	: T extends IsConjunctionMatcher<T, number>
+	? DeepReadonlyPrimitiveConjunction<T, number>
+	: T extends IsConjunctionMatcher<T, null>
+	? DeepReadonlyPrimitiveConjunction<T, null>
+	: T extends IsConjunctionMatcher<T, boolean>
+	? DeepReadonlyPrimitiveConjunction<T, boolean>
+	: T extends IsConjunctionMatcher<T, bigint>
+	? DeepReadonlyPrimitiveConjunction<T, bigint>
+	: T extends IsConjunctionMatcher<T, symbol>
+	? DeepReadonlyPrimitiveConjunction<T, symbol>
+	: T extends IsFunctionConjunctionMatcher<T>
+	? DeepReadonlyFunctionConjunction<T>
+	: T extends IsConjunctionMatcher<T, undefined>
+	? DeepReadonlyPrimitiveConjunction<T, undefined>
+	: T extends (infer R)[]
 	? DeepReadonlyArray<R>
 	: T extends readonly [...infer TUP]
 	? DeepReadonlyTuple<TUP>
@@ -746,6 +762,16 @@ export type DeepReadonly<T> = T extends (infer R)[]
 	? DeepReadonlyObject<T>
 	: T;
 export interface DeepReadonlyArray<T> extends ReadonlyArray<DeepReadonly<T>> {}
+export type DeepReadonlyPrimitiveConjunction<T, Prim> = T extends Prim & infer U
+	? Prim & DeepReadonly<U>
+	: never;
+export type DeepReadonlyFunctionConjunction<T> = T extends (
+	...params: infer PARAMS
+) => infer RET
+	? T extends ((...params: PARAMS) => RET) & infer U
+		? ((...params: PARAMS) => RET) & DeepReadonly<U>
+		: never
+	: never;
 export type DeepReadonlyTuple<T extends readonly [...unknown[]]> = {
 	readonly [P in keyof T]: DeepReadonly<T[P]>;
 };
@@ -977,11 +1003,32 @@ type SwapGuard<
 			from: Swap<Parameters<Func>[0], From, To, From2, To2, From3, To3>
 	  ) => from is Swap<ToG, From, To, From2, To2, From3, To3>
 	: never;
+
+type IsFunctionConjunctionMatcher<Whole> = Whole extends (
+	...params: infer PARAMS
+) => infer RET
+	? Whole extends ((...params: PARAMS) => RET) & infer T
+		? T extends never
+			? never
+			: unknown extends T
+			? never
+			: Whole extends T
+			? T extends Whole
+				? never
+				: Whole
+			: Whole
+		: never
+	: never;
+
 type IsConjunctionMatcher<Whole, Part> = Whole extends Part & infer T
 	? T extends never
 		? never
 		: unknown extends T
 		? never
+		: Whole extends T
+		? T extends Whole
+			? never
+			: Whole
 		: Whole
 	: never;
 type SwapConjunction<Conj, From, To, From2, To2, From3, To3> =

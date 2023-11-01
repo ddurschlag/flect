@@ -624,6 +624,33 @@ describe("@flect/core", () => {
 				// @ts-expect-error
 				roo.a[0][0]++;
 			});
+			test("Intersections are distributed", () => {
+				const numRecord = record({myNum: numberType});
+				const strRecord = record({myStr: stringType});
+				const RoI = readonly(intersection(numRecord, strRecord));
+				type RoI = Reify<typeof RoI>;
+				const roi: RoI = {myNum: 7, myStr: "5"};
+			});
+			test("Branded primitives work", () => {
+				const s = Symbol("readonly");
+				const BP = intersection(stringType, brand(s));
+				type BP = Reify<typeof BP>;
+				const RoBP = readonly(BP);
+				type RoBP = Reify<typeof RoBP>;
+				const bp: BP = "foo" as BP;
+				const robp: RoBP = bp;
+			});
+			test("Branded functions work", () => {
+				const fType = functionType(numberType, stringType);
+				const s = Symbol("readonly");
+				const BF = intersection(fType, brand(s));
+				type BF = Reify<typeof BF>;
+				const RoBF = readonly(BF);
+				type RoBF = Reify<typeof RoBF>;
+				const bf = ((str: string) => str.length) as BF;
+				const robf: RoBF = bf;
+				expect(robf("three")).toBe(5);
+			});
 		});
 		describe("Mapped types", () => {
 			test("Smoke test", () => {
