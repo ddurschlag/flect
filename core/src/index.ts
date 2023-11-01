@@ -197,6 +197,46 @@ export class FunctionType<
 	private _returns: Type<Returns>;
 }
 
+const guardCache = new MemoizationCache<GuardType<any, any>>();
+const MakeGuard = Symbol("make-guard");
+export class GuardType<From, To extends From> extends Type<
+	(from: From) => from is To
+> {
+	protected constructor(from: Type<From>, to: Type<To>) {
+		super();
+		this._from = from;
+		this._to = to;
+	}
+
+	get from() {
+		return this._from;
+	}
+
+	get to() {
+		return this._to;
+	}
+
+	public static [MakeGuard]<From, To extends From>(
+		from: Type<From>,
+		to: Type<To>
+	): GuardType<From, To> {
+		return guardCache.memoize((f, t) => new GuardType(f, t), from, to);
+	}
+
+	private _from: Type<From>;
+	private _to: Type<To>;
+}
+
+/*
+// Could be expanded to multi-argument perhaps
+export function guard<To, From = unknown>(
+	from: Type<From>,
+	to: Type<To>
+) {
+	return GuardType[MakeGuard](from, to);
+}
+*/
+
 const singleGenericfunctionCache = new MemoizationCache<
 	SingleGenericFunctionType<any, any, any>
 >();
@@ -267,14 +307,14 @@ export class DoubleGenericFunctionType<
 	SecondConstraint extends unknown
 > extends Type<
 	<
-		GEN_TYPE_1 extends DoubleSwap<
+		GEN_TYPE_1 extends Swap<
 			FirstConstraint,
 			Generic_1,
 			GEN_TYPE_1,
 			Generic_2,
 			GEN_TYPE_2
 		>,
-		GEN_TYPE_2 extends DoubleSwap<
+		GEN_TYPE_2 extends Swap<
 			SecondConstraint,
 			Generic_1,
 			GEN_TYPE_1,
@@ -282,14 +322,14 @@ export class DoubleGenericFunctionType<
 			GEN_TYPE_2
 		>
 	>(
-		...args: DoubleSwap<
+		...args: Swap<
 			EnforceTupling<Params>,
 			Generic_1,
 			GEN_TYPE_1,
 			Generic_2,
 			GEN_TYPE_2
 		>
-	) => DoubleSwap<Returns, Generic_1, GEN_TYPE_1, Generic_2, GEN_TYPE_2>
+	) => Swap<Returns, Generic_1, GEN_TYPE_1, Generic_2, GEN_TYPE_2>
 > {
 	protected constructor(
 		params: ReflectTuple<Params>,
@@ -364,7 +404,7 @@ export class TripleGenericFunctionType<
 	ThirdConstraint extends unknown
 > extends Type<
 	<
-		GEN_TYPE_1 extends TripleSwap<
+		GEN_TYPE_1 extends Swap<
 			FirstConstraint,
 			Generic_1,
 			GEN_TYPE_1,
@@ -373,7 +413,7 @@ export class TripleGenericFunctionType<
 			Generic_3,
 			GEN_TYPE_3
 		>,
-		GEN_TYPE_2 extends TripleSwap<
+		GEN_TYPE_2 extends Swap<
 			SecondConstraint,
 			Generic_1,
 			GEN_TYPE_1,
@@ -382,7 +422,7 @@ export class TripleGenericFunctionType<
 			Generic_3,
 			GEN_TYPE_3
 		>,
-		GEN_TYPE_3 extends TripleSwap<
+		GEN_TYPE_3 extends Swap<
 			ThirdConstraint,
 			Generic_1,
 			GEN_TYPE_1,
@@ -392,7 +432,7 @@ export class TripleGenericFunctionType<
 			GEN_TYPE_3
 		>
 	>(
-		...args: TripleSwap<
+		...args: Swap<
 			EnforceTupling<Params>,
 			Generic_1,
 			GEN_TYPE_1,
@@ -401,7 +441,7 @@ export class TripleGenericFunctionType<
 			Generic_3,
 			GEN_TYPE_3
 		>
-	) => TripleSwap<
+	) => Swap<
 		Returns,
 		Generic_1,
 		GEN_TYPE_1,
@@ -730,6 +770,7 @@ export const boolType = Type[MakeType]<boolean>();
 export const symbolType = Type[MakeType]<symbol>();
 export const voidType = Type[MakeType]<void>();
 export const nullType = Type[MakeType]<null>();
+export const undefinedType = Type[MakeType]<undefined>();
 export const neverType = Type[MakeType]<never>();
 export const unknownType = Type[MakeType]<unknown>();
 export const objectType = Type[MakeType]<object>();
@@ -787,65 +828,154 @@ function surround<
 	throw new Error("Cannot surround symbol with prefix/suffix");
 }
 
+// Type-level swap
 // Seems to handle intersection types now, but definitely one of the most
 // complex/fragile bits of the codebase
-type Swap<T, From, To> = T extends IsConjunctionMatcher<T, From>
-	? SwapConjunction<T, From, To>
+type Swap<
+	T,
+	From,
+	To,
+	From2 = never,
+	To2 = never,
+	From3 = never,
+	To3 = never
+> = T extends IsConjunctionMatcher<T, From>
+	? SwapConjunction<T, From, To, From2, To2, From3, To3>
+	: T extends IsConjunctionMatcher<T, From2>
+	? SwapConjunction<T, From2, To2, From, To, From3, To3>
+	: T extends IsConjunctionMatcher<T, From3>
+	? SwapConjunction<T, From3, To3, From, To, From2, To2>
 	: T extends From
 	? To
+	: T extends From2
+	? To2
+	: T extends From3
+	? To3
 	: T extends Type<infer InnerT>
-	? Type<Swap<InnerT, From, To>>
+	? Type<Swap<InnerT, From, To, From2, To2, From3, To3>>
 	: T extends unknown[]
-	? SwapArray<T, From, To>
+	? SwapArray<T, From, To, From2, To2, From3, To3>
 	: T extends readonly [...unknown[]]
-	? SwapTuple<T, From, To>
+	? SwapTuple<T, From, To, From2, To2, From3, To3>
+	: T extends (from: any) => from is any
+	? SwapGuard<T, From, To, From2, To2, From3, To3>
 	: T extends (...args: [...any[]]) => unknown
-	? SwapFunction<T, From, To>
+	? SwapFunction<T, From, To, From2, To2, From3, To3>
 	: T extends Map<any, any>
-	? SwapMap<T, From, To>
+	? SwapMap<T, From, To, From2, To2, From3, To3>
 	: T extends Set<any>
-	? SwapSet<T, From, To>
+	? SwapSet<T, From, To, From2, To2, From3, To3>
 	: T extends {
 			readonly [brandProp]: infer B;
 	  }
 	? T // Brand prop
 	: T extends object
-	? SwapObject<T, From, To>
+	? SwapObject<T, From, To, From2, To2, From3, To3>
 	: T;
 type SwapValue<Value, From, To> = Value extends From ? To : Value;
 type SwapTuple<
 	Tuple extends readonly [...unknown[]],
 	From,
 	To,
+	From2 = never,
+	To2 = unknown,
+	From3 = never,
+	To3 = unknown,
 	Output extends readonly [...unknown[]] = readonly []
 > = Tuple extends readonly []
 	? Output
 	: Tuple extends readonly [infer Head, ...infer Rest]
-	? SwapTuple<Rest, From, To, readonly [...Output, Swap<Head, From, To>]>
+	? SwapTuple<
+			Rest,
+			From,
+			To,
+			From2,
+			To2,
+			From3,
+			To3,
+			readonly [...Output, Swap<Head, From, To, From2, To2, From3, To3>]
+	  >
 	: readonly [];
-type SwapArray<ArrayType extends unknown[], From, To> = ArrayType extends Array<
-	infer T
->
-	? Array<Swap<T, From, To>>
+type SwapArray<
+	ArrayType extends unknown[],
+	From,
+	To,
+	From2 = never,
+	To2 = unknown,
+	From3 = never,
+	To3 = unknown
+> = ArrayType extends Array<infer T>
+	? Array<Swap<T, From, To, From2, To2, From3, To3>>
 	: never;
-type SwapMap<T extends Map<any, any>, From, To> = T extends Map<
-	infer K,
-	infer V
->
-	? Map<Swap<K, From, To>, Swap<V, From, To>>
+type SwapMap<
+	T extends Map<any, any>,
+	From,
+	To,
+	From2 = never,
+	To2 = unknown,
+	From3 = never,
+	To3 = unknown
+> = T extends Map<infer K, infer V>
+	? Map<
+			Swap<K, From, To, From2, To2, From3, To3>,
+			Swap<V, From, To, From2, To2, From3, To3>
+	  >
 	: never;
-type SwapSet<SetType extends Set<any>, From, To> = SetType extends Set<infer T>
-	? Set<Swap<T, From, To>>
+type SwapSet<
+	SetType extends Set<any>,
+	From,
+	To,
+	From2 = never,
+	To2 = unknown,
+	From3 = never,
+	To3 = unknown
+> = SetType extends Set<infer T>
+	? Set<Swap<T, From, To, From2, To2, From3, To3>>
 	: never;
-type SwapObject<ObjectType extends object, From, To> = {
-	[P in keyof ObjectType]: Swap<ObjectType[P], From, To>;
+type SwapObject<
+	ObjectType extends object,
+	From,
+	To,
+	From2 = never,
+	To2 = unknown,
+	From3 = never,
+	To3 = unknown
+> = {
+	[P in keyof ObjectType]: Swap<
+		ObjectType[P],
+		From,
+		To,
+		From2,
+		To2,
+		From3,
+		To3
+	>;
 };
 type SwapFunction<
 	Func extends (...args: [...any[]]) => unknown,
 	From,
-	To
+	To,
+	From2,
+	To2,
+	From3,
+	To3
 > = Func extends (...args: infer Params) => infer ReturnType
-	? (...args: SwapTuple<Params, From, To>) => Swap<ReturnType, From, To>
+	? (
+			...args: SwapTuple<Params, From, To, From2, To2, From3, To3>
+	  ) => Swap<ReturnType, From, To, From2, To2, From3, To3>
+	: never;
+type SwapGuard<
+	Func extends (from: any) => from is any,
+	From,
+	To,
+	From2,
+	To2,
+	From3 = never,
+	To3 = unknown
+> = Func extends (from: any) => from is infer ToG
+	? (
+			from: Swap<Parameters<Func>[0], From, To, From2, To2, From3, To3>
+	  ) => from is Swap<ToG, From, To, From2, To2, From3, To3>
 	: never;
 type IsConjunctionMatcher<Whole, Part> = Whole extends Part & infer T
 	? T extends never
@@ -854,10 +984,12 @@ type IsConjunctionMatcher<Whole, Part> = Whole extends Part & infer T
 		? never
 		: Whole
 	: never;
-type SwapConjunction<Conj, From, To> = Conj extends From & infer T
-	? To & Swap<T, From, To>
-	: never;
+type SwapConjunction<Conj, From, To, From2, To2, From3, To3> =
+	Conj extends From & infer T
+		? To & Swap<T, From, To, From2, To2, From3, To3>
+		: never;
 
+// Instance-level swap
 function swap<T, From, To>(
 	type: ArrayType<T>,
 	from: Type<From>,
@@ -916,6 +1048,10 @@ function swap<T, From, To>(
 	if (type instanceof IntersectionType) {
 		// eslint-disable-next-line @typescript-eslint/no-use-before-define
 		return swapIntersection(type, from, to) as any; // TS just can't follow this :(
+	}
+	if (type instanceof GuardType) {
+		// eslint-disable-next-line @typescript-eslint/no-use-before-define
+		return swapGuard(type, from, to) as any;
 	}
 	return ((type as any) === from ? to : type) as any; // TS just can't follow this :(
 }
@@ -1008,6 +1144,19 @@ function swapFunction<
 			(paramTypes ?? type.params) as any,
 			newReturn
 		);
+	}
+	return type as any;
+}
+
+function swapGuard<FromG, ToG extends FromG, From, To>(
+	type: GuardType<FromG, ToG>,
+	from: Type<From>,
+	to: Type<To>
+): any {
+	const swappedFrom = swap(type.from, from, to);
+	const swappedTo = swap(type.to, from, to);
+	if (swappedFrom !== type.from || swappedTo !== type.to) {
+		return GuardType[MakeGuard](swappedFrom, swappedTo as any) as any;
 	}
 	return type as any;
 }
@@ -1152,17 +1301,6 @@ export const SECOND_GENERIC_TYPE = Type[MakeType]<Generic_2>();
 const Generic_3 = Symbol("generic-3");
 type Generic_3 = typeof Generic_3;
 export const THIRD_GENERIC_TYPE = Type[MakeType]<Generic_3>();
-
-type DoubleSwap<T, From_1, To_1, From_2, To_2> = Swap<
-	Swap<T, From_1, To_1>,
-	From_2,
-	To_2
->;
-type TripleSwap<T, From_1, To_1, From_2, To_2, From_3, To_3> = Swap<
-	DoubleSwap<T, From_1, To_1, From_2, To_2>,
-	From_3,
-	To_3
->;
 
 type SingleGenericFunctionTypeSignature = (<
 	FirstConstraint extends unknown = unknown
@@ -1348,4 +1486,12 @@ export function conditional<Extension, Base, Yes, No>(
 	no: Type<No>
 ) {
 	return ConditionalType[MakeConditional](extension, base, yes, no);
+}
+
+// Could be expanded to multi-argument perhaps
+export function guard<To extends From, From = unknown>(
+	from: Type<From>,
+	to: Type<To>
+) {
+	return GuardType[MakeGuard](from, to);
 }

@@ -3,18 +3,13 @@ import {
 	numberType,
 	stringType,
 	Reify,
-	functionType,
 	Type,
 	array,
 	setType,
 	tuple,
 	mapType,
 	intersection,
-	voidType,
 	RecordType,
-	mappedRecord,
-	conditional,
-	SourceType,
 	literal,
 	union
 } from "@flect/core";

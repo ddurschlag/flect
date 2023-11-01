@@ -1,35 +1,49 @@
 import {
 	ArrayType,
 	BrandType,
+	FIRST_GENERIC_TYPE,
 	IntersectionType,
 	MapType,
 	ReadonlyType,
 	RecordType,
+	Reify,
 	SetType,
 	Type,
 	UnionType,
 	bigintType,
 	boolType,
+	guard,
+	metaType,
 	neverType,
 	nullType,
 	numberType,
+	record,
+	singleGenericFunctionType,
 	stringType,
 	symbolType,
+	undefinedType,
+	union,
+	unknownType,
 	voidType
 } from "@flect/core";
 
 // Guards
 export type Guard<T = unknown> = (u: unknown) => u is T;
-export interface GuardRepository {
-	get<T>(t: Type<T>): Guard<T> | undefined;
-}
+
+export const GuardRepository = record({
+	get: singleGenericFunctionType(
+		union(guard(unknownType, FIRST_GENERIC_TYPE), undefinedType),
+		metaType(FIRST_GENERIC_TYPE)
+	)
+});
+export type GuardRepository = Reify<typeof GuardRepository>;
 export class GuardMap implements GuardRepository {
 	constructor() {
 		this._map = new Map();
 	}
 
-	public add<T>(t: Type<T>, guard: Guard<T>) {
-		this._map.set(t, guard);
+	public add<T>(t: Type<T>, guardT: Guard<T>) {
+		this._map.set(t, guardT);
 	}
 
 	public get<T>(t: Type<T>) {

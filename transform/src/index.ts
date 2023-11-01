@@ -1,21 +1,34 @@
 import {
 	ArrayType,
+	FIRST_GENERIC_TYPE,
 	IntersectionType,
 	MapType,
 	RecordType,
+	SECOND_GENERIC_TYPE,
 	SetType,
 	TupleType,
 	Type,
 	UnionType,
+	doubleGenericFunctionType,
+	functionType,
+	metaType,
+	record,
+	Reify,
 	tuple,
+	undefinedType,
 	union,
 	voidType
 } from "@flect/core";
 
 export type Transformer<T = never, U = unknown> = (t: T) => U;
-export interface TransformerRepository {
-	get<T, U>(t: Type<T>, u: Type<U>): Transformer<T, U> | undefined;
-}
+export const TransformerRepository = record({
+	get: doubleGenericFunctionType(
+		union(functionType(SECOND_GENERIC_TYPE, FIRST_GENERIC_TYPE), undefinedType),
+		metaType(FIRST_GENERIC_TYPE),
+		metaType(SECOND_GENERIC_TYPE)
+	)
+});
+export type TransformerRepository = Reify<typeof TransformerRepository>;
 
 export class ChainTransformer implements TransformerRepository {
 	constructor() {
