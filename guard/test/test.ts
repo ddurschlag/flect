@@ -153,10 +153,9 @@ describe("@flect/Guard", () => {
 		expect(v.get(Person)!(steve)).toBe(true);
 	});
 	test("Mixed array/object", () => {
-		const v = new GuardChain();
+		const v = new GuardChain(defaultGuards);
 		const recV = new RecordValidator(v);
 		const arrV = new GenericValidator(v);
-		v.add(defaultGuards);
 		v.add(recV);
 		v.add(arrV);
 

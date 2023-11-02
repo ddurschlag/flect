@@ -136,8 +136,7 @@ describe("@flect/transform", () => {
 	});
 	describe("Record", () => {
 		test("Add prop", () => {
-			const c = new ChainTransformer();
-			c.add(new IdentityTransformer());
+			const c = new ChainTransformer(new IdentityTransformer());
 			c.addLoopRepo(RecordTransformer);
 			c.add(getDefaultTransformerRepository(stringType, "moo"));
 
