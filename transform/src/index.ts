@@ -31,8 +31,11 @@ export const TransformerRepository = record({
 export type TransformerRepository = Reify<typeof TransformerRepository>;
 
 export class ChainTransformer implements TransformerRepository {
-	constructor() {
+	constructor(...repos: TransformerRepository[]) {
 		this._chain = [];
+		for (const r of repos) {
+			this.add(r);
+		}
 	}
 
 	public add(r: TransformerRepository) {
