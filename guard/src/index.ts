@@ -55,8 +55,11 @@ export class GuardMap implements GuardRepository {
 }
 
 export class GuardChain implements GuardRepository {
-	constructor() {
+	constructor(...repos: GuardRepository[]) {
 		this._chain = [];
+		for (const r of repos) {
+			this.add(r);
+		}
 	}
 
 	public add(r: GuardRepository) {
