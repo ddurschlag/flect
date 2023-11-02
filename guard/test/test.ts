@@ -1,5 +1,6 @@
 import {
 	Reify,
+	anyType,
 	array,
 	bigintType,
 	boolType,
@@ -14,7 +15,9 @@ import {
 	setType,
 	stringType,
 	symbolType,
+	undefinedType,
 	union,
+	unknownType,
 	voidType
 } from "@flect/core";
 import {
@@ -62,6 +65,19 @@ const Change = record({
 type Change = Reify<typeof Change>;
 
 describe("@flect/Guard", () => {
+	test("Various defaults", () => {
+		const v = new GuardChain(defaultGuards);
+		v.addLoopRepo(RecordValidator);
+		const g = v.get(
+			record({
+				undef: undefinedType,
+				unknown: unknownType,
+				any: anyType
+			})
+		);
+		expect(g!({undef: undefined, unknown: 3, any: 3})).toBe(true);
+		expect(g!({undef: 3, unknown: 3, any: 3})).toBe(false);
+	});
 	test("Brand", () => {
 		const v = brandRepository.get(brand(Symbol("test")))!;
 		expect(v(null)).toBe(false);
