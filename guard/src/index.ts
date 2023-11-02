@@ -10,6 +10,7 @@ import {
 	SetType,
 	Type,
 	UnionType,
+	anyType,
 	bigintType,
 	boolType,
 	guard,
@@ -111,8 +112,11 @@ defaultGuards.add(bigintType, (u): u is bigint => typeof u === "bigint");
 defaultGuards.add(boolType, (u): u is boolean => typeof u === "boolean");
 defaultGuards.add(symbolType, (u): u is symbol => typeof u === "symbol");
 defaultGuards.add(voidType, (u): u is void => typeof u === "undefined");
+defaultGuards.add(undefinedType, (u): u is void => typeof u === "undefined");
 defaultGuards.add(nullType, (u): u is null => u === null);
 defaultGuards.add(neverType, (u): u is never => false);
+defaultGuards.add(unknownType, (u): u is unknown => true);
+defaultGuards.add(anyType, (u): u is unknown => true);
 
 // Guards for brands are always false -- there's no way to inspect data
 // and see that it's the branded version. That's the point.
