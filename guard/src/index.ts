@@ -197,27 +197,58 @@ function objectHas(
 	return Object.hasOwn(o, k);
 }
 
+function typeCanBeUndefined(t: Type<any>) {
+	if (t instanceof UnionType) {
+		for (const sub of t.subsets) {
+			if (typeCanBeUndefined(sub)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	if (t instanceof IntersectionType) {
+		for (const sub of t.subsets) {
+			if (!typeCanBeUndefined(sub)) {
+				return false;
+			}
+		}
+		return true;
+	}
+	return t === undefinedType || t === voidType;
+}
+
 export class RecordValidator implements GuardRepository {
-	constructor(subRepo: GuardRepository) {
+	constructor(
+		subRepo: GuardRepository,
+		private undefinedPropertiesAreOptional = true
+	) {
 		this._subRepo = subRepo;
 	}
 
 	get<T>(t: Type<T>) {
 		if (t instanceof RecordType) {
-			const subGuards: {key: string; val: Guard<unknown>}[] = [];
+			const subGuards: {
+				key: string;
+				val: Guard<unknown>;
+				canBeUndef: boolean;
+			}[] = [];
 			for (const p of t.properties) {
 				const val = this._subRepo.get(p[1]);
 				if (val === undefined) {
 					return; // Can't validate if we can't find sub-validators
 				}
-				subGuards.push({key: p[0], val});
+				subGuards.push({key: p[0], val, canBeUndef: typeCanBeUndefined(p[1])});
 			}
 			return (u: unknown): u is T => {
 				if (typeof u !== "object" || u === null) {
 					return false;
 				}
 				for (const prop of subGuards) {
-					if (!objectHas(u, prop.key) || !prop.val(u[prop.key])) {
+					if (objectHas(u, prop.key)) {
+						if (!prop.val(u[prop.key])) {
+							return false;
+						}
+					} else if (!this.undefinedPropertiesAreOptional || !prop.canBeUndef) {
 						return false;
 					}
 				}
