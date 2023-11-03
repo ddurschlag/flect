@@ -1,5 +1,6 @@
 import {
 	Reify,
+	SourceType,
 	anyType,
 	array,
 	bigintType,
@@ -7,6 +8,7 @@ import {
 	brand,
 	intersection,
 	mapType,
+	mappedRecord,
 	neverType,
 	nullType,
 	numberType,
@@ -102,14 +104,53 @@ describe("@flect/Guard", () => {
 		expect(v.get(PersonAndPet)!(dog)).toBe(false);
 		expect(v.get(PersonAndPet)!(steveDog)).toBe(true);
 	});
-	test("Record", () => {
-		const v = new GuardChain();
-		v.add(defaultGuards);
-		v.addLoopRepo(RecordValidator);
+	describe("Record", () => {
+		test("Simple", () => {
+			const v = new GuardChain();
+			v.add(defaultGuards);
+			v.addLoopRepo(RecordValidator);
 
-		expect(v.get(Animal)!({legCount: 3, sound: "woof"})).toBe(true);
-		expect(v.get(Animal)!({bork: "woof"})).toBe(false);
-		expect(v.get(Animal)!({legCount: 3})).toBe(false);
+			expect(v.get(Animal)!({legCount: 3, sound: "woof"})).toBe(true);
+			expect(v.get(Animal)!({bork: "woof"})).toBe(false);
+			expect(v.get(Animal)!({legCount: 3})).toBe(false);
+		});
+		test("Presence required", () => {
+			const v = new GuardChain();
+			v.add(defaultGuards);
+			v.addLoopRepo(AlgebraRepository);
+			v.add(new RecordValidator(v, false));
+			expect(
+				v.get(mappedRecord(Animal, union(SourceType, undefinedType), "", ""))!({
+					legCount: 3
+				})
+			).toBe(false);
+		});
+		test("Presence optional", () => {
+			const v = new GuardChain();
+			v.add(defaultGuards);
+			v.addLoopRepo(AlgebraRepository);
+			v.addLoopRepo(RecordValidator);
+			expect(
+				v.get(mappedRecord(Animal, union(SourceType, undefinedType), "", ""))!({
+					legCount: 3
+				})
+			).toBe(true);
+		});
+		test("Funky algebra", () => {
+			const funky = record({
+				interYes: intersection(undefinedType, voidType),
+				interNo: intersection(union(undefinedType, numberType), numberType),
+				unionYes: union(undefinedType, numberType),
+				unionNo: union(numberType, stringType)
+			});
+			const v = new GuardChain(defaultGuards);
+			v.addLoopRepo(AlgebraRepository);
+			v.addLoopRepo(RecordValidator);
+			const funkyVal = v.get(funky)!;
+			expect(funkyVal({interNo: 3, unionNo: 3})).toBe(true);
+			expect(funkyVal({interNo: 3})).toBe(false);
+			expect(funkyVal({unionNo: 3})).toBe(false);
+		});
 	});
 	test("Array", () => {
 		const v = new GuardChain();
