@@ -47,7 +47,8 @@ import {
 	objectType,
 	metaType,
 	reify,
-	GuardType
+	GuardType,
+	optionalRecord
 } from "@flect/core";
 
 type InstanceOf<T> = T extends {prototype: infer R} ? R : never;
@@ -138,6 +139,17 @@ describe("@flect/core", () => {
 			expect(dog).toBeTruthy();
 			// @ts-expect-error
 			const chair: Animal = {legCount: 4, seat: true};
+		});
+		test("Optional record type", () => {
+			const MaybePetless = optionalRecord({
+				name: stringType,
+				pet: union(Animal, undefinedType)
+			});
+			type MaybePetless = Reify<typeof MaybePetless>;
+			const withPet: MaybePetless = {name: "alice", pet: dog};
+			const withoutPet: MaybePetless = {name: "bob"};
+			// @ts-expect-error
+			const onlyPet: MaybePetless = {pet: dog};
 		});
 		test("Array type", () => {
 			const StringArray = array(stringType);
@@ -730,6 +742,23 @@ describe("@flect/core", () => {
 
 				const recOfOld = assertKeyIsType(MegaHierarchy, "rec", RecordType);
 				assertKeyIsType(recOfOld, "old", RecordType);
+			});
+			test("Optional record type", () => {
+				const DefinitelyPet = optionalRecord({
+					pet: Animal
+				});
+				type DefinitelyPet = Reify<typeof DefinitelyPet>;
+				const MaybePetless = mappedRecord(
+					DefinitelyPet,
+					union(SourceType, undefinedType),
+					"",
+					""
+				);
+				type MaybePetless = Reify<typeof MaybePetless>;
+				const petless: MaybePetless = {};
+				const petfull: MaybePetless = {pet: dog};
+				// @ts-expect-error
+				const other: MaybePetless = {foo: dog};
 			});
 			test("Constant record type", () => {
 				const hierarchy = record({rec: record({key: numberType})});
