@@ -1,6 +1,6 @@
 {
 	"name": "@flect/guard",
-	"version": "4.0.0",
+	"version": "4.1.0",
 	"description": "Typeguards for flect types",
 	"keywords": [
 		"typescript",
