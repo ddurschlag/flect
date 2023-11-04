@@ -313,7 +313,6 @@ export class GenericValidator implements GuardRepository {
 				}
 				return true;
 			};
-			
 		}
 		if (t instanceof MapType) {
 			const keyVal = this._subRepo.get(t.keyType);
