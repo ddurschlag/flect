@@ -17,6 +17,7 @@ import {
 	setType,
 	stringType,
 	symbolType,
+	tuple,
 	undefinedType,
 	union,
 	unknownType,
@@ -161,6 +162,16 @@ describe("@flect/Guard", () => {
 		expect(v.get(array(numberType))!([1, "2", 3])).toBe(false);
 		expect(v.get(array(numberType))!(3)).toBe(false);
 	});
+	test("Tuple", () => {
+		const v = new GuardChain();
+		v.add(defaultGuards);
+		v.addLoopRepo(GenericValidator);
+
+		expect(v.get(tuple(numberType, stringType))!([3, "3"])).toBe(true);
+		expect(v.get(tuple(numberType, stringType))!(["3", 3])).toBe(false);
+		expect(v.get(tuple(numberType, stringType))!([3])).toBe(false);
+		expect(v.get(tuple(numberType, stringType))!(3)).toBe(false);
+	});
 	test("Map", () => {
 		const v = new GuardChain();
 		v.add(defaultGuards);
@@ -250,6 +261,12 @@ describe("@flect/Guard", () => {
 		const arrV = new GenericValidator(v);
 		v.add(arrV);
 		expect(v.get(array(numberType))).toBeUndefined();
+	});
+	test("Unsubvalidatable tuple", () => {
+		const v = new GuardChain();
+		const arrV = new GenericValidator(v);
+		v.add(arrV);
+		expect(v.get(tuple(numberType))).toBeUndefined();
 	});
 	test("Unsubvalidatable map", () => {
 		const v = new GuardChain();

@@ -8,6 +8,7 @@ import {
 	RecordType,
 	Reify,
 	SetType,
+	TupleType,
 	Type,
 	UnionType,
 	anyType,
@@ -277,6 +278,36 @@ export class GenericValidator implements GuardRepository {
 				}
 				for (let i = 0; i < u.length; i++) {
 					if (!subVal(u[i])) {
+						return false;
+					}
+				}
+				return true;
+			};
+		}
+		if (t instanceof TupleType) {
+			const subGuards: {
+				key: number;
+				val: Guard<unknown>;
+				canBeUndef: boolean;
+			}[] = [];
+			for (let i = 0; i < t.subsets.length; i++) {
+				const p = t.subsets[i];
+				const val = this._subRepo.get(p);
+				if (val === undefined) {
+					return; // Can't validate if we can't find sub-validators
+				}
+				subGuards.push({key: i, val, canBeUndef: typeCanBeUndefined(p)});
+			}
+			return (u: unknown): u is T => {
+				if (!Array.isArray(u)) {
+					return false;
+				}
+				if (u.length < subGuards.length) {
+					return false;
+				}
+				for (let i = 0; i < subGuards.length; i++) {
+					const prop = subGuards[i];
+					if (!prop.val(u[prop.key])) {
 						return false;
 					}
 				}
