@@ -122,30 +122,48 @@ export class MetaType<Reflected> extends Type<Type<Reflected>> {
 	public type: Type<Reflected>;
 }
 
-const recordCache = new MemoizationCache<RecordType<any>>();
+type MandatoryKeys<T> = {
+	[P in keyof T]: T[P] extends Exclude<T[P], undefined> ? P : never;
+}[keyof T];
+type PartializeUndefineds<T> = Partial<T> & Pick<T, MandatoryKeys<T>>;
+type MaybePartialize<T, Partialize> = Partialize extends true
+	? PartializeUndefineds<T>
+	: T;
+
+const recordCache = new MemoizationCache<RecordType<any, boolean>>();
 const MakeRecord = Symbol("make-record");
 export class RecordType<
-	Reflected extends Record<string | number, unknown>
-> extends Type<Reflected> {
-	protected constructor(type: ReflectObject<Reflected>) {
+	Reflected extends Record<string | number, unknown>,
+	OptionalUndefineds extends boolean = boolean
+> extends Type<MaybePartialize<Reflected, OptionalUndefineds>> {
+	protected constructor(
+		type: ReflectObject<Reflected>,
+		optionalUndefineds: OptionalUndefineds
+	) {
 		super();
 		this.properties = Reflect.ownKeys(type).map((key) => [
 			key,
 			Reflect.get(type, key)
 		]) as any;
+		this.optionalUndefineds = optionalUndefineds;
 	}
 
 	public static [MakeRecord]<
-		Reflected extends Record<string | number, unknown>
-	>(type: ReflectObject<Reflected>): RecordType<Reflected> {
+		Reflected extends Record<string | number, unknown>,
+		OptionalUndefineds extends boolean
+	>(
+		type: ReflectObject<Reflected>,
+		optionalUndefineds: OptionalUndefineds
+	): RecordType<Reflected, OptionalUndefineds> {
 		const props = Reflect.ownKeys(type).map(
 			(key) => [key, Reflect.get(type, key)] as const
 		);
 		props.sort(sortProps);
-		const c = recordCache.getLayer(...props.flat());
-		let result: RecordType<Reflected> | undefined = c.getValue();
+		const c = recordCache.getLayer(...props.flat(), optionalUndefineds);
+		let result: RecordType<Reflected, OptionalUndefineds> | undefined =
+			c.getValue();
 		if (result === undefined) {
-			result = new RecordType(type);
+			result = new RecordType(type, optionalUndefineds);
 			c.setValue(result);
 		}
 		return result;
@@ -157,6 +175,7 @@ export class RecordType<
 			Type<Reflected[K]>
 		];
 	}[keyof Reflected][]; // see https://github.com/microsoft/TypeScript/issues/13298 for why this type isn't tighter
+	public optionalUndefineds: boolean;
 }
 
 const functionCache = new MemoizationCache<FunctionType<any, any>>();
@@ -817,7 +836,14 @@ export function literal<Reflected extends number | string | boolean>(
 export function record<Reflected extends Record<string | number, unknown>>(
 	type: ReflectObject<Reflected>
 ) {
-	return RecordType[MakeRecord]<Reflected>(type);
+	return RecordType[MakeRecord]<Reflected, false>(type, false);
+}
+
+// Just like record, but anything that can be undefined is now optional
+export function optionalRecord<
+	Reflected extends Record<string | number, unknown>
+>(type: ReflectObject<Reflected>) {
+	return RecordType[MakeRecord]<Reflected, true>(type, true);
 }
 
 const sourceTypeSymbol = Symbol("source-type");
@@ -1058,10 +1084,15 @@ function swap<
 	to: Type<To>
 ): FunctionType<SwapTuple<Params, From, To>, Swap<Returns, From, To>>;
 function swap<T extends Record<string | number, unknown>, From, To>(
-	type: RecordType<T>,
+	type: RecordType<T, true>,
 	from: Type<From>,
 	to: Type<To>
-): RecordType<SwapObject<T, From, To>>;
+): RecordType<SwapObject<T, From, To>, true>;
+function swap<T extends Record<string | number, unknown>, From, To>(
+	type: RecordType<T, false>,
+	from: Type<From>,
+	to: Type<To>
+): RecordType<SwapObject<T, From, To>, false>;
 function swap<T, From, To>(
 	type: Type<T>,
 	from: Type<From>,
@@ -1209,6 +1240,16 @@ function swapGuard<FromG, ToG extends FromG, From, To>(
 }
 
 function swapRecord<T extends Record<string | number, unknown>, From, To>(
+	type: RecordType<T, true>,
+	from: Type<From>,
+	to: Type<To>
+): RecordType<SwapObject<T, From, To>, true>;
+function swapRecord<T extends Record<string | number, unknown>, From, To>(
+	type: RecordType<T, false>,
+	from: Type<From>,
+	to: Type<To>
+): RecordType<SwapObject<T, From, To>, false>;
+function swapRecord<T extends Record<string | number, unknown>, From, To>(
 	type: RecordType<T>,
 	from: Type<From>,
 	to: Type<To>
@@ -1227,7 +1268,10 @@ function swapRecord<T extends Record<string | number, unknown>, From, To>(
 		}
 	}
 	if (different) {
-		return RecordType[MakeRecord](innerRecordType as any); // TS just can't follow this :(
+		return RecordType[MakeRecord](
+			innerRecordType as any,
+			type.optionalUndefineds
+		); // TS just can't follow this :(
 	}
 	return type as any; // TS just can't follow this :(
 }
@@ -1238,17 +1282,60 @@ export function mappedRecord<
 	Prefix extends string,
 	Suffix extends string
 >(
-	source: RecordType<Reflected>,
+	source: RecordType<Reflected, true>,
 	propertyType: Type<PropertyType>,
 	prefix: Prefix,
 	suffix: Suffix
-): RecordType<{
-	[key in keyof Reflected as Surround<key, Prefix, Suffix>]: Swap<
-		PropertyType,
-		SourceType,
-		Reflected[key]
-	>;
-}> {
+): RecordType<
+	{
+		[key in keyof Reflected as Surround<key, Prefix, Suffix>]: Swap<
+			PropertyType,
+			SourceType,
+			Reflected[key]
+		>;
+	},
+	true
+>;
+export function mappedRecord<
+	Reflected extends Record<string | number, unknown>,
+	PropertyType,
+	Prefix extends string,
+	Suffix extends string
+>(
+	source: RecordType<Reflected, false>,
+	propertyType: Type<PropertyType>,
+	prefix: Prefix,
+	suffix: Suffix
+): RecordType<
+	{
+		[key in keyof Reflected as Surround<key, Prefix, Suffix>]: Swap<
+			PropertyType,
+			SourceType,
+			Reflected[key]
+		>;
+	},
+	false
+>;
+export function mappedRecord<
+	Reflected extends Record<string | number, unknown>,
+	PropertyType,
+	Prefix extends string,
+	Suffix extends string
+>(
+	source: RecordType<Reflected, boolean>,
+	propertyType: Type<PropertyType>,
+	prefix: Prefix,
+	suffix: Suffix
+): RecordType<
+	{
+		[key in keyof Reflected as Surround<key, Prefix, Suffix>]: Swap<
+			PropertyType,
+			SourceType,
+			Reflected[key]
+		>;
+	},
+	boolean
+> {
 	const reflectedResult: {
 		[key in keyof Reflected as Surround<key, Prefix, Suffix>]?: Type<
 			Swap<PropertyType, SourceType, Reflected[key]>
@@ -1261,7 +1348,10 @@ export function mappedRecord<
 			type
 		) as any;
 	}
-	return RecordType[MakeRecord](reflectedResult as any); // There's no diff-checking here, we always return a new type
+	if (source.optionalUndefineds) {
+		return optionalRecord(reflectedResult as any);
+	}
+	return record(reflectedResult as any); // There's no diff-checking here, we always return a new type
 }
 
 export function reify<T>(t: Type<T>) {
