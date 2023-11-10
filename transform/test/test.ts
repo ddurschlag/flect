@@ -20,6 +20,7 @@ import {
 	IterableTransformer,
 	RecordTransformer,
 	TransformerRepository,
+	TupleTransformer,
 	getDefaultTransformerRepository,
 	getSingletonTransformerRepository
 } from "@flect/transform";
@@ -53,6 +54,13 @@ describe("@flect/transform", () => {
 		const catWithDogPet = {legCount: 4, sound: "meow", pet: myDog};
 		expect(t!(catWithDogPet)).toBe(catWithDogPet);
 	});
+	test("Identity union", () => {
+		const PetOrPerson = union(Animal, Person);
+		const t = new IdentityTransformer().get(Animal, PetOrPerson);
+		expect(t).toBeDefined();
+		expect(new IdentityTransformer().get(Person, PetOrPerson)).toBeDefined();
+		expect(t!(myDog)).toBe(myDog);
+	});
 	describe("Iterable", () => {
 		test("Array to set", () => {
 			const c = new ChainTransformer();
@@ -74,16 +82,6 @@ describe("@flect/transform", () => {
 			expect(a.length).toBe(2);
 			expect(a[0]).toBe(1);
 			expect(a[1]).toBe(2);
-		});
-		test("Array to tuple", () => {
-			const c = new ChainTransformer();
-			c.add(new IdentityTransformer());
-			c.addLoopRepo(IterableTransformer);
-			const t = c.get(array(numberType), tuple(numberType, numberType));
-			expect(t).toBeDefined();
-			const tup = t!([1, 2]);
-			expect(tup[0]).toBe(1);
-			expect(tup[1]).toBe(2);
 		});
 		test("Array to map", () => {
 			const c = new ChainTransformer();
@@ -111,6 +109,189 @@ describe("@flect/transform", () => {
 			c.add(new IdentityTransformer());
 			c.addLoopRepo(IterableTransformer);
 			expect(c.get(array(numberType), array(stringType))).toBeUndefined();
+		});
+	});
+	describe("Tuple", () => {
+		test("Array to tuple", () => {
+			const c = new ChainTransformer();
+			c.add(new IdentityTransformer());
+			c.addLoopRepo(TupleTransformer);
+			const t = c.get(array(numberType), tuple(numberType, numberType));
+			expect(t).toBeDefined();
+			const tup = t!([1, 2]);
+			expect(tup[0]).toBe(1);
+			expect(tup[1]).toBe(2);
+		});
+		test("Tuple to tuple", () => {
+			const c = new ChainTransformer();
+			c.add(new IdentityTransformer());
+			c.addLoopRepo(TupleTransformer);
+			let t = c.get(
+				tuple(stringType, numberType),
+				tuple(numberType, numberType)
+			);
+			expect(t).toBeUndefined();
+			c.add({
+				get: (from, to) => {
+					if (from === stringType && to === numberType) {
+						return ((s: string) => s.length) as unknown as any;
+					}
+					return undefined;
+				}
+			});
+			t = c.get(tuple(stringType, numberType), tuple(numberType, numberType));
+			expect(t).toBeDefined();
+			expect(t!(["3", 3])).toEqual([1, 3]);
+		});
+		test("Tuple to map", () => {
+			const c = new ChainTransformer();
+			c.add(new IdentityTransformer());
+			c.addLoopRepo(TupleTransformer);
+			// This is a strange one. Each tuple element is transformed
+			let t = c.get(
+				tuple(stringType, numberType),
+				mapType(numberType, stringType)
+			);
+			expect(t).toBeUndefined();
+			c.add({
+				get: (from, to) => {
+					if (
+						from === stringType &&
+						(to as unknown) === tuple(numberType, stringType)
+					) {
+						return ((s: string) => [parseFloat(s), s] as const) as any;
+					}
+					if (
+						from === numberType &&
+						(to as unknown) === tuple(numberType, stringType)
+					) {
+						return ((n: number) => [n, n.toString()] as const) as any;
+					}
+					return undefined;
+				}
+			});
+			t = c.get(tuple(stringType, numberType), mapType(numberType, stringType));
+			expect(t).toBeDefined();
+			const result = t!(["3", 4]);
+			expect(result.get(3)).toBe("3");
+			expect(result.get(4)).toBe("4");
+			expect(result.get(0)).toBeUndefined();
+		});
+		test("Not enough data", () => {
+			const c = new ChainTransformer();
+			c.add(new IdentityTransformer());
+			c.addLoopRepo(TupleTransformer);
+			c.add({
+				get: (from, to) => {
+					if (from === stringType && to === numberType) {
+						return ((s: string) => s.length) as unknown as any;
+					}
+					return undefined;
+				}
+			});
+			expect(
+				c.get(tuple(stringType, stringType), tuple(numberType, numberType))
+			).toBeDefined();
+			expect(
+				c.get(
+					tuple(stringType, stringType, stringType),
+					tuple(numberType, numberType)
+				)
+			).toBeDefined();
+			expect(
+				c.get(tuple(stringType), tuple(numberType, numberType))
+			).toBeUndefined();
+		});
+		test("Tuple to array", () => {
+			const c = new ChainTransformer();
+			c.add(new IdentityTransformer());
+			c.addLoopRepo(TupleTransformer);
+			const t = c.get(tuple(stringType, stringType), array(stringType));
+			expect(t).toBeDefined();
+			expect(t!(["foo", "bar"])).toEqual(["foo", "bar"]);
+		});
+		test("Tuple to set", () => {
+			const c = new ChainTransformer();
+			c.add(new IdentityTransformer());
+			c.addLoopRepo(TupleTransformer);
+			const t = c.get(tuple(stringType, stringType), setType(stringType));
+			expect(t).toBeDefined();
+			expect(t!(["foo", "bar"])).toEqual(new Set(["foo", "bar"]));
+		});
+		test("Tuple to scalar doesn't work", () => {
+			const c = new ChainTransformer();
+			c.add(new IdentityTransformer());
+			c.addLoopRepo(TupleTransformer);
+			expect(c.get(tuple(stringType, stringType), stringType)).toBeUndefined();
+		});
+		test("Iterable to tuple of unknown type doesn't work", () => {
+			const c = new ChainTransformer();
+			c.add(new IdentityTransformer());
+			c.addLoopRepo(TupleTransformer);
+			expect(
+				c.get(array(numberType), tuple(numberType, stringType))
+			).toBeUndefined();
+		});
+		test("Iterable too short for tuple", () => {
+			const c = new ChainTransformer();
+			c.add(new IdentityTransformer());
+			c.addLoopRepo(TupleTransformer);
+			c.add({
+				get: (from, to) => {
+					if (from === stringType && to === numberType) {
+						return ((s: string) => s.length) as unknown as any;
+					}
+					return undefined;
+				}
+			});
+			const t = c.get(array(stringType), tuple(stringType, numberType));
+			expect(t).toBeDefined();
+			expect(() => t!(["foo"])).toThrow();
+		});
+		test("Set to tuple", () => {
+			const c = new ChainTransformer();
+			c.add(new IdentityTransformer());
+			c.addLoopRepo(TupleTransformer);
+			const t = c.get(setType(stringType), tuple(stringType, stringType));
+			expect(t).toBeDefined();
+			expect(t!(new Set(["foo", "bar"]))).toEqual(["foo", "bar"]);
+			expect(() => t!(new Set(["foo"]))).toThrow();
+		});
+		test("Map to tuple", () => {
+			const c = new ChainTransformer();
+			c.add(new IdentityTransformer());
+			c.addLoopRepo(TupleTransformer);
+			const t = c.get(
+				mapType(stringType, numberType),
+				tuple(tuple(stringType, numberType), tuple(stringType, numberType))
+			);
+			expect(t).toBeDefined();
+			expect(
+				t!(
+					new Map([
+						["foo", 3],
+						["bar", 4]
+					])
+				)
+			).toEqual([
+				["foo", 3],
+				["bar", 4]
+			]);
+			expect(() => t!(new Map([["foo", 3]]))).toThrow();
+		});
+		test("Tuple doesn't do iterable to iterable", () => {
+			const c = new ChainTransformer();
+			c.add(new IdentityTransformer());
+			c.addLoopRepo(TupleTransformer);
+			expect(c.get(array(numberType), setType(numberType))).toBeUndefined();
+		});
+		test("Fan out from scalar", () => {
+			const c = new ChainTransformer();
+			c.add(new IdentityTransformer());
+			c.addLoopRepo(TupleTransformer);
+			const t = c.get(stringType, tuple(stringType, stringType));
+			expect(t).toBeDefined();
+			expect(t!("foo")).toEqual(["foo", "foo"]);
 		});
 	});
 	test("Caching", () => {

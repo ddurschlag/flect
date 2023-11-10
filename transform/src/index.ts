@@ -112,15 +112,143 @@ function isIterable(u: unknown) {
 	if (u instanceof SetType) {
 		return {type: u.itemType};
 	}
-	if (u instanceof TupleType) {
-		return {type: union(...u.subsets)};
-	}
 	return null;
 }
 
 function* map<T, U>(input: Iterable<T>, f: (t: T) => U): Iterable<U> {
 	for (const t of input) {
 		yield f(t);
+	}
+}
+
+export class TupleTransformer implements TransformerRepository {
+	constructor(private subRepo: TransformerRepository) {}
+	get<T, U>(fromType: Type<T>, toType: Type<U>): Transformer<T, U> | undefined {
+		const iterT = isIterable(fromType);
+		const iterU = isIterable(toType);
+		if (fromType instanceof TupleType) {
+			if (toType instanceof TupleType) {
+				// The both case. Needs to be 1:1
+				if (fromType.subsets.length < toType.subsets.length) {
+					// Not enough data to construct the output
+					return undefined;
+				}
+				const subTransformers: ((from: any) => any)[] = [];
+				for (let i = 0; i < toType.subsets.length; i++) {
+					const subFrom = fromType.subsets[i];
+					const subTo = toType.subsets[i];
+					const sub = this.subRepo.get(subFrom, subTo);
+					if (sub === undefined) {
+						return undefined;
+					}
+					subTransformers.push(sub);
+				}
+				return ((input: any[]) =>
+					input.map((fromVal, i) =>
+						subTransformers[i](fromVal)
+					)) as unknown as Transformer<T, U>;
+			}
+			if (iterU !== null) {
+				// From tuple to iterable
+				const subTransformers: ((from: any) => any)[] = [];
+				for (let i = 0; i < fromType.subsets.length; i++) {
+					const subFrom = fromType.subsets[i];
+					const subTo = iterU.type;
+					const sub = this.subRepo.get(subFrom, subTo);
+					if (sub === undefined) {
+						return undefined;
+					}
+					subTransformers.push(sub);
+				}
+				if (toType instanceof ArrayType) {
+					return ((input: any[]) =>
+						input.map((fromVal, i) =>
+							subTransformers[i](fromVal)
+						)) as unknown as Transformer<T, U>;
+				}
+				if (toType instanceof SetType) {
+					return ((input: any[]) =>
+						new Set(
+							input.map((fromVal, i) => subTransformers[i](fromVal))
+						)) as unknown as Transformer<T, U>;
+				}
+				if (toType instanceof MapType) {
+					return ((input: any[]) =>
+						new Map(
+							input.map((fromVal, i) => subTransformers[i](fromVal))
+						)) as unknown as Transformer<T, U>;
+				}
+			}
+			// Destination isn't tuple or iterable
+			return undefined;
+		}
+		if (iterT !== null) {
+			if (toType instanceof TupleType) {
+				const subTransformers: ((from: any) => any)[] = [];
+				for (let i = 0; i < toType.subsets.length; i++) {
+					const subFrom = iterT.type;
+					const subTo = toType.subsets[i];
+					const sub = this.subRepo.get(subFrom, subTo);
+					if (sub === undefined) {
+						return undefined;
+					}
+					subTransformers.push(sub);
+				}
+				if (fromType instanceof ArrayType) {
+					return ((input: any[]) => {
+						if (input.length < toType.subsets.length) {
+							throw new Error("Cannot transform: input length too short");
+						}
+						return input.map((fromVal, i) => subTransformers[i](fromVal));
+					}) as unknown as Transformer<T, U>;
+				}
+				if (fromType instanceof SetType) {
+					return ((input: Set<any>) => {
+						if (input.size < toType.subsets.length) {
+							throw new Error("Cannot transform: input length too short");
+						}
+						// TODO: Use a variation of our map function to optimize this a bit
+						return [...input.values()].map((fromVal, i) =>
+							subTransformers[i](fromVal)
+						);
+					}) as unknown as Transformer<T, U>;
+				}
+				if (fromType instanceof MapType) {
+					return ((input: Map<any, any>) => {
+						if (input.size < toType.subsets.length) {
+							throw new Error("Cannot transform: input length too short");
+						}
+
+						return [...input.entries()].map((fromVal, i) =>
+							subTransformers[i](fromVal)
+						);
+					}) as unknown as Transformer<T, U>;
+				}
+			}
+			// At this point we *might* have a pair of iterables, but that's not our job
+			return undefined;
+		}
+		// Coming from a scalar, but maybe our destination is a tuple and we can "fan out?"
+		if (toType instanceof TupleType) {
+			const subTransformers: ((from: any) => any)[] = [];
+			for (let i = 0; i < toType.subsets.length; i++) {
+				const subFrom = fromType;
+				const subTo = toType.subsets[i];
+				const sub = this.subRepo.get(subFrom, subTo);
+				if (sub === undefined) {
+					return undefined;
+				}
+				subTransformers.push(sub);
+			}
+			return ((input: any) => {
+				const result: any[] = [];
+				for (const subT of subTransformers) {
+					result.push(subT(input));
+				}
+				return result;
+			}) as any;
+		}
+		return undefined;
 	}
 }
 
@@ -143,7 +271,7 @@ export class IterableTransformer implements TransformerRepository {
 		if (subTransformer === undefined) {
 			return undefined; // can't transform if we can't find sub-transformer
 		}
-		if (toType instanceof ArrayType || toType instanceof TupleType) {
+		if (toType instanceof ArrayType) {
 			return ((input: Iterable<InnerT>) => [
 				...map(input, subTransformer)
 			]) as unknown as Transformer<T, U>;
@@ -160,6 +288,15 @@ export class IterableTransformer implements TransformerRepository {
 		}
 	}
 }
+
+// TODO: Alebgraic transformer. This is very complicated.
+// Union source requires a guard repo. We can then determine if
+// we have subtransformers and guards for every possible input. If so, at
+// transform time we can use the guard to see if we should use the transformer.
+// Union dest is easy: any output type that works is fine.
+// Intersection input is easy: any input type that works is fine.
+// Intersection output is _impossible_. There's no way to generically merge two,
+// possibly conflicting, objects.
 
 export class RecordTransformer implements TransformerRepository {
 	constructor(private subRepo: TransformerRepository) {}
