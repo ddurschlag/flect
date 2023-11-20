@@ -637,7 +637,10 @@ export class ReadonlyType<ReflectedType> extends Type<
 	public static [MakeReadonly]<ReflectedType>(
 		type: Type<ReflectedType>
 	): ReadonlyType<ReflectedType> {
-		return readonlyCache.memoize((t) => new ReadonlyType(t), type);
+		return readonlyCache.memoize(
+			(t) => new ReadonlyType<ReflectedType>(t),
+			type
+		);
 	}
 
 	public get type() {
@@ -1423,7 +1426,18 @@ export function functionType<
 	return FunctionType[MakeFunction](parameterTypes, returnType);
 }
 
-export function readonly<ReflectedType>(type: Type<ReflectedType>) {
+export function readonly<ReflectedType>(
+	type: ReadonlyType<ReflectedType>
+): ReadonlyType<ReflectedType>;
+export function readonly<ReflectedType>(
+	type: Type<ReflectedType>
+): ReadonlyType<ReflectedType>;
+export function readonly<ReflectedType>(
+	type: Type<ReflectedType>
+): ReadonlyType<ReflectedType> {
+	if (type instanceof ReadonlyType) {
+		return type;
+	}
 	return ReadonlyType[MakeReadonly](type);
 }
 
