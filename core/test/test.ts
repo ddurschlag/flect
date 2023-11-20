@@ -589,6 +589,13 @@ describe("@flect/core", () => {
 				const x: DRoOoA = {foo: ["bar"]};
 				expect(x.foo.length).toBe(1);
 			});
+			test("Alternating readonlys still don't stack badly", () => {
+				const AltRo = readonly(record({foo: readonly(array(stringType))}));
+				type AltRo = Reify<typeof AltRo>;
+
+				const x: AltRo = {foo: ["bar"]};
+				expect(x.foo.length).toBe(1);
+			});
 			test("Tuples become fixed", () => {
 				const RoT = readonly(tuple(stringType, numberType));
 				type RoT = Reify<typeof RoT>;

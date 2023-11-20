@@ -772,14 +772,22 @@ export type DeepReadonly<T> = T extends IsConjunctionMatcher<T, string>
 	? DeepReadonlyPrimitiveConjunction<T, undefined>
 	: T extends (infer R)[]
 	? DeepReadonlyArray<R>
+	: T extends DeepReadonlyArray<infer R>
+	? T
 	: T extends readonly [...infer TUP]
 	? DeepReadonlyTuple<TUP>
 	: T extends (...args: readonly [...infer ARGS]) => infer RET
 	? DeepReadonlyFunction<ARGS, RET>
+	: T extends DeepReadonlyFunction<infer ARGS, infer RET>
+	? T
 	: T extends Map<infer K, infer V>
 	? DeepReadonlyMap<K, V>
+	: T extends ReadonlyMap<infer K, infer V>
+	? ReadonlyMap<DeepReadonly<K>, DeepReadonly<V>>
 	: T extends Set<infer V>
 	? DeepReadonlySet<V>
+	: T extends ReadonlySet<infer V>
+	? ReadonlySet<DeepReadonly<V>>
 	: T extends object
 	? DeepReadonlyObject<T>
 	: T;
