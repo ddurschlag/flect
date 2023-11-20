@@ -48,7 +48,8 @@ import {
 	metaType,
 	reify,
 	GuardType,
-	optionalRecord
+	optionalRecord,
+	DeepReadonlyObject
 } from "@flect/core";
 
 type InstanceOf<T> = T extends {prototype: infer R} ? R : never;
@@ -578,6 +579,16 @@ describe("@flect/core", () => {
 				expect(RoA.type).toBeInstanceOf(ArrayType);
 				// @ts-expect-error
 				threeThreeForever[0] = 5;
+			});
+			test("Double readonly of object of array doesn't explode", () => {
+				const DRoOoA = readonly(readonly(record({foo: array(stringType)})));
+				type DRoOoA = Reify<typeof DRoOoA>;
+
+				// Second RO does nothing
+				expect(DRoOoA).toBe(readonly(record({foo: array(stringType)})));
+
+				const x: DRoOoA = {foo: ["bar"]};
+				expect(x.foo.length).toBe(1);
 			});
 			test("Tuples become fixed", () => {
 				const RoT = readonly(tuple(stringType, numberType));
