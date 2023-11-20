@@ -48,8 +48,7 @@ import {
 	metaType,
 	reify,
 	GuardType,
-	optionalRecord,
-	DeepReadonlyObject
+	optionalRecord
 } from "@flect/core";
 
 type InstanceOf<T> = T extends {prototype: infer R} ? R : never;

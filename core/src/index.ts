@@ -637,7 +637,7 @@ export class ReadonlyType<ReflectedType> extends Type<
 	public static [MakeReadonly]<ReflectedType>(
 		type: Type<ReflectedType>
 	): ReadonlyType<ReflectedType> {
-		return readonlyCache.memoize<[Type<ReflectedType>]>(
+		return readonlyCache.memoize(
 			(t) => new ReadonlyType<ReflectedType>(t),
 			type
 		);
