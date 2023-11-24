@@ -209,8 +209,17 @@ describe("@flect/core", () => {
 			type AnimalKeys = Reify<typeof AnimalKeys>;
 			const aKey: AnimalKeys = "legCount";
 			expect(aKey).toBeTruthy();
+			expect(AnimalKeys.keys).toEqual(["legCount", "sound"]);
 			// @ts-expect-error
 			const notKey: AnimalKeys = "seat";
+			let threw = false;
+			try {
+				// @ts-expect-error
+				const NotRecordKeys = keyof(array(stringType));
+			} catch (err) {
+				threw = true;
+			}
+			expect(threw).toBe(true);
 		});
 		test("Index type", () => {
 			const Person = record({
