@@ -3,6 +3,7 @@ import {
 	BrandType,
 	FIRST_GENERIC_TYPE,
 	IntersectionType,
+	KeyOfType,
 	MapType,
 	ReadonlyType,
 	RecordType,
@@ -216,6 +217,23 @@ function typeCanBeUndefined(t: Type<any>) {
 		return true;
 	}
 	return t === undefinedType || t === voidType;
+}
+
+export class KeyOfValidator implements GuardRepository {
+	public get<T>(t: Type<T>) {
+		if (t instanceof KeyOfType) {
+			return (u: unknown): u is T => {
+				switch (typeof u) {
+					case "string":
+					case "symbol":
+					case "number":
+						return t.keys.indexOf(u) !== -1;
+					default:
+						return false;
+				}
+			};
+		}
+	}
 }
 
 export class RecordValidator implements GuardRepository {

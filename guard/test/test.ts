@@ -7,6 +7,7 @@ import {
 	boolType,
 	brand,
 	intersection,
+	keyof,
 	mapType,
 	mappedRecord,
 	neverType,
@@ -31,7 +32,8 @@ import {
 	brandRepository,
 	AlgebraRepository,
 	GuardCache,
-	ReadonlyRepository
+	ReadonlyRepository,
+	KeyOfValidator
 } from "@flect/guard";
 
 const Animal = record({
@@ -80,10 +82,18 @@ describe("@flect/Guard", () => {
 		);
 		expect(g!({undef: undefined, unknown: 3, any: 3})).toBe(true);
 		expect(g!({undef: 3, unknown: 3, any: 3})).toBe(false);
+		expect(v.get(array(stringType))).toBeUndefined();
 	});
 	test("Brand", () => {
 		const v = brandRepository.get(brand(Symbol("test")))!;
 		expect(v(null)).toBe(false);
+	});
+	test("KeyOf", () => {
+		const v = new KeyOfValidator();
+		const g = v.get(keyof(record({a: stringType, b: numberType})));
+		expect(g!("a")).toBe(true);
+		expect(g!("c")).toBe(false);
+		expect(g!(true)).toBe(false);
 	});
 	test("Union", () => {
 		const v = new GuardChain();

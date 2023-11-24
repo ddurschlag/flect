@@ -122,6 +122,30 @@ export class MetaType<Reflected> extends Type<Type<Reflected>> {
 	public type: Type<Reflected>;
 }
 
+const keyOfCache = new MemoizationCache<KeyOfType<any>>();
+const MakeKeyOf = Symbol("make-keyof");
+export class KeyOfType<
+	Reflected extends Record<string | number, unknown>
+> extends Type<keyof Reflected> {
+	protected constructor(
+		type: RecordType<Reflected>,
+		keys: (string | number | symbol)[]
+	) {
+		super();
+		this.keys = keys;
+	}
+
+	public static [MakeKeyOf]<Reflected extends Record<string | number, unknown>>(
+		type: RecordType<Reflected>
+	): KeyOfType<Reflected> {
+		const keys = type.properties.map(([key, val]) => key);
+		keys.sort();
+		return keyOfCache.memoize((t, ...k) => new KeyOfType(t, k), type, ...keys);
+	}
+
+	public keys: (string | number | symbol)[];
+}
+
 type MandatoryKeys<T> = {
 	[P in keyof T]: T[P] extends Exclude<T[P], undefined> ? P : never;
 }[keyof T];
@@ -1369,9 +1393,10 @@ export function reify<T>(t: Type<T>) {
 	return Reified[MakeReified](t);
 }
 
-// TODO: Needs class
-export function keyof<Reflected>(type: Type<Reflected>) {
-	return Type[MakeType]<keyof Reflected>();
+export function keyof<Reflected extends Record<string | number, unknown>>(
+	type: RecordType<Reflected>
+) {
+	return KeyOfType[MakeKeyOf](type);
 }
 
 // Pretty useless
